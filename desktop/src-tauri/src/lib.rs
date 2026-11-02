@@ -4,6 +4,7 @@
 mod dictation;
 mod github;
 mod platform;
+mod video;
 
 use notes_core::{Folder, Vault};
 use serde::Serialize;
@@ -547,6 +548,51 @@ fn selftest_install_e5(from: String, app: tauri::AppHandle) -> Result<(), String
     Ok(())
 }
 
+#[tauri::command]
+fn video_list(app: tauri::AppHandle) -> Vec<video::Item> {
+    video::list(&app)
+}
+
+#[tauri::command]
+fn video_add(path: String, added: String, app: tauri::AppHandle) -> Result<video::Item, String> {
+    video::add(app, path, added)
+}
+
+#[tauri::command]
+fn video_get(id: String, app: tauri::AppHandle) -> Option<notes_speech::Transcript> {
+    video::get(&app, &id)
+}
+
+#[tauri::command]
+fn video_rename_speaker(id: String, speaker: usize, name: String, app: tauri::AppHandle) -> Result<(), String> {
+    let mut t = video::get(&app, &id).ok_or("нет расшифровки")?;
+    t.rename(speaker, &name);
+    video::put(&app, &id, &t)
+}
+
+#[tauri::command]
+fn video_delete(id: String, app: tauri::AppHandle) {
+    video::delete(&app, &id);
+}
+
+/// Сохранить как заметку в «расшифровки/». Возвращает путь заметки.
+#[tauri::command]
+fn video_save_note(id: String, app: tauri::AppHandle, state: State<AppState>) -> Result<String, String> {
+    let item = video::list(&app).into_iter().find(|i| i.id == id).ok_or("нет расшифровки")?;
+    let t = video::get(&app, &id).ok_or("нет расшифровки")?;
+    with_vault(&state, |v| {
+        let path = v.create_note("расшифровки", &item.title).map_err(|e| e.to_string())?;
+        let title = path.rsplit('/').next().unwrap_or(&path).trim_end_matches(".md").to_string();
+        v.write(&path, &t.note(&title, &item.source, &item.added, item.duration, "gigaam-v3-punct")).map_err(|e| e.to_string())?;
+        Ok(path)
+    })
+}
+
+#[tauri::command]
+fn video_srt(id: String, path: String, app: tauri::AppHandle) -> Result<(), String> {
+    std::fs::write(path, video::get(&app, &id).ok_or("нет расшифровки")?.srt()).map_err(|e| e.to_string())
+}
+
 /// Какая ОС — интерфейс выбирает стекло окна (Mica на Windows, Liquid Glass на маке).
 #[tauri::command]
 fn os() -> &'static str {
@@ -589,7 +635,8 @@ pub fn run() {
             github_status, github_code, github_finish, github_cancel, github_sign_out, github_sync, open_github,
             lock_state, lock_seen, lock_needed_on_return, pin_set, pin_clear, pin_check, hello_verify,
             dictation_toggle, models, model_download, model_remove, dictation_test,
-            meaning_installed, meaning_download, meaning_search, selftest_install_e5
+            meaning_installed, meaning_download, meaning_search, selftest_install_e5,
+            video_list, video_add, video_get, video_rename_speaker, video_delete, video_save_note, video_srt
         ])
         .run(tauri::generate_context!())
         .expect("error while running <notes>");

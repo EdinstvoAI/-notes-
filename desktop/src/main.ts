@@ -12,6 +12,7 @@ import { enableDrag, enableFileDrop, type DragHost } from "./drag";
 import { mountCalendar } from "./calendar";
 import { mountTasks } from "./tasks";
 import { mountSettings } from "./settings";
+import { addFiles, mountVideo } from "./video";
 import type { Prefs } from "./api";
 
 type Section = "notes" | "tasks" | "calendar" | "video" | "settings";
@@ -219,9 +220,6 @@ function noteHTML(path: string): string {
   </article>`;
 }
 
-function soonHTML(title: string): string {
-  return `<div class="placeholder"><h1>${title}</h1><p>Этот раздел переезжает с мака следующим.</p></div>`;
-}
 
 function renderActions() {
   const buttons: [Glyph, string, string][] =
@@ -245,7 +243,7 @@ function contentHTML(): string {
         : overviewHTML(findFolder(state.selection.path) ?? state.tree);
     case "tasks": return `<div class="tasks-root"></div>`;
     case "calendar": return `<div class="cal-root"></div>`;
-    case "video": return soonHTML("видео");
+    case "video": return `<div class="video-root"></div>`;
     case "settings": return `<div class="settings-root"></div>`;
   }
 }
@@ -257,6 +255,8 @@ function mountSection() {
   const cal = page.querySelector<HTMLElement>(".cal-root");
   if (cal) mountCalendar(cal, { backend, openNote });
   const tasks = page.querySelector<HTMLElement>(".tasks-root");
+  const video = page.querySelector<HTMLElement>(".video-root");
+  if (video) void mountVideo(video, sidebar, { openNote, reload, onCrumb: (t) => (crumb.textContent = t), inTauri: backend.inTauri });
   const settings = page.querySelector<HTMLElement>(".settings-root");
   if (settings) void mountSettings(settings, sidebar, { backend, onCrumb: (t) => (crumb.textContent = t), apply: applyPrefs,
     pickVault: async () => { const tree = await backend.pickVault(); if (tree) { state.tree = tree; state.tabs = []; state.selection = { kind: "folder", path: "" }; await reload(); } render(); },
@@ -398,6 +398,8 @@ app.addEventListener("click", async (e) => {
   } else if (el.dataset.act === "pick") {
     state.tree = await backend.pickVault();
     render();
+  } else if (el.dataset.act === "add-video") {
+    page.querySelector<HTMLElement>("[data-pick]")?.click();
   } else if (el.dataset.act === "dictate") {
     if (backend.inTauri) await (await import("@tauri-apps/api/core")).invoke("dictation_toggle");
   } else if (el.dataset.act === "new-task") {
@@ -600,6 +602,8 @@ const dragHost: DragHost = {
     render();
   },
   async copyIn(paths, folder) {
+    // На экране «видео» перетащенный файл — на расшифровку, а не в папку заметок.
+    if (state.section === "video") { await addFiles(paths); lastKey = ""; render(); return; }
     for (const p of paths) await backend.copyIn(p, folder);
     if (folder) state.expanded.add(folder);
     await reload();

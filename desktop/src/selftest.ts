@@ -87,6 +87,15 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
       for (let i = 0; i < 120 && !copied; i++) await pause(500);
       stop();
       await check(`dictation → clipboard: «${copied.slice(0, 40)}…»`, copied.includes("лукоморья") && states.includes("recognizing"));
+      // Видео: тот же WAV как файл → расшифровка в фоне → заметка в «расшифровки/».
+      let done = false;
+      const stopV = await listen<{ words: number | null }>("video", (e) => { if (e.payload.words) done = true; });
+      const item = await invoke<{ id: string }>("video_add", { path: wav, added: "2026-11-02 12:00" });
+      for (let i = 0; i < 120 && !done; i++) await pause(500);
+      stopV();
+      const note = await invoke<string>("video_save_note", { id: item.id });
+      const text = await backend.read(note);
+      await check(`transcript note ${note}`, note === "расшифровки/example.md" && text.includes("**00:00** ") && text.includes("модель: gigaam"));
     }
     await pause(300);
   } catch (e) {
