@@ -380,6 +380,7 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .quiet { color: rgba(var(--fg), 0.3); font-size: 11px; }
 .quiet:hover { color: rgba(var(--fg), 0.6); }
 .unlock-sheet .quiet { margin-top: 150px; font-size: 13px; }
+.unlock-sheet .quiet + .forgot { margin-top: 12px; }
 .pin-cells { display: flex; gap: 12px; justify-content: center; }
 .pin-cells i { width: 46px; height: 46px; border-radius: 50%; background: rgb(244, 244, 244); position: relative;
   transition: box-shadow .25s var(--smooth); }

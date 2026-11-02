@@ -47,6 +47,7 @@ export function showUnlock(state: LockState): Promise<void> {
         <p class="${wrong || wait ? "error" : ""}">${subtitle}</p>
         <div class="${wait ? "waiting" : ""}">${cells(digits.length, wait ? null : digits.length, wrong && !wait)}</div>
         ${state.hello ? `<button class="quiet" data-hello>windows hello</button>` : ""}
+        <button class="quiet forgot" data-forgot>забыл пинкод</button>
       </div>`;
     };
 
@@ -88,7 +89,28 @@ export function showUnlock(state: LockState): Promise<void> {
       if (ok) await finish();
     };
 
-    el.addEventListener("click", (e) => { if ((e.target as HTMLElement).closest("[data-hello]")) void askHello(); });
+    // «Забыл пинкод» — как на маке (пароль от Mac или Touch ID): Windows Hello, а он сам предложит
+    // PIN или пароль от Windows; подтвердили — придумать новый пинкод.
+    const forgot = async () => {
+      if (busy) return;
+      busy = true;
+      const ok = await lockApi.hello().catch(() => false);
+      busy = false;
+      if (!ok) {
+        wrong = false;
+        el.querySelector("p")!.textContent = "не подтвердилось: нужен вход в windows (параметры → учётные записи → варианты входа)";
+        return;
+      }
+      await lockApi.clear();
+      document.removeEventListener("keydown", onKey, true);
+      await choosePin();
+      await finish();
+    };
+    el.addEventListener("click", (e) => {
+      const t = e.target as HTMLElement;
+      if (t.closest("[data-hello]")) void askHello();
+      if (t.closest("[data-forgot]")) void forgot();
+    });
     document.addEventListener("keydown", onKey, true);
     // Обратный отсчёт паузы идёт сам.
     const timer = setInterval(() => { if (wait) { wait = wait > 1 ? wait - 1 : null; render(); } }, 1000);
