@@ -2,12 +2,15 @@
 //! качаются по требованию в папку данных приложения и проверяются по SHA-256 (CLAUDE.md, «лёгкая сборка»).
 //! На входе — семплы 16 кГц моно, Float −1…1; на выходе — текст.
 
+pub mod media;
 pub mod models;
+pub mod transcript;
 
 use std::ops::Range;
 use std::path::Path;
 
 pub use models::{Model, ModelStore};
+pub use transcript::{Segment, Transcript};
 
 pub const SAMPLE_RATE: usize = 16_000;
 
@@ -73,6 +76,15 @@ impl GigaAm {
             .filter(|t| !t.is_empty())
             .collect::<Vec<_>>()
             .join(" ")
+    }
+
+    /// Расшифровка файла: куски до 20 с со временем начала и конца.
+    pub fn segments(&self, samples: &[f32]) -> Vec<Segment> {
+        let rate = SAMPLE_RATE as f64;
+        pieces(samples, 20.0).into_iter().filter_map(|r| {
+            let text = self.decode(&samples[r.clone()]);
+            (!text.is_empty()).then(|| Segment { start: r.start as f64 / rate, end: r.end as f64 / rate, text, speaker: None })
+        }).collect()
     }
 
     fn decode(&self, samples: &[f32]) -> String {

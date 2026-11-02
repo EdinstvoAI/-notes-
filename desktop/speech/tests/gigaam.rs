@@ -22,6 +22,11 @@ fn installs_and_transcribes_russian() {
     println!("распознано: {text}");
     assert!(text.chars().filter(|c| c.is_alphabetic()).count() > 10, "{text}");
     assert!(text.chars().any(|c| ('а'..='я').contains(&c.to_lowercase().next().unwrap())), "russian text: {text}");
+    // Тот же файл через декодер медиа и с временем реплик.
+    let samples = notes_speech::media::decode(&store.folder(Model::GigaAm).join("test_wavs/example.wav")).unwrap();
+    assert_eq!(samples.len(), wave.samples().len());
+    let segs = model.segments(&samples);
+    assert!(!segs.is_empty() && segs[0].start == 0.0 && segs.last().unwrap().end > 5.0);
 }
 
 #[test]
