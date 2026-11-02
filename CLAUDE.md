@@ -30,6 +30,7 @@
 | продуктовый вопрос, «а так можно?» | [docs/DECISIONS.md](docs/DECISIONS.md), [docs/PRODUCT.md](docs/PRODUCT.md) |
 | крупные этапы | [docs/ROADMAP.md](docs/ROADMAP.md) |
 | порт под Windows | [docs/WINDOWS.md](docs/WINDOWS.md) |
+| шифрование копии на GitHub | [docs/ENCRYPTION.md](docs/ENCRYPTION.md) |
 
 ## Нельзя никогда
 
