@@ -18,7 +18,7 @@ const MAX_SECONDS: u64 = 5 * 60;
 pub enum Event {
     Listening,
     /// Громкость 0…1, ~20 раз в секунду — для сферы.
-    Level { level: f32 },
+    Level { level: f32, bands: [f32; 4] },
     Recognizing,
     Copied { text: String },
     Error { message: String },
@@ -127,6 +127,7 @@ fn start(app: AppHandle) -> Result<Recording, String> {
             let config = device.default_input_config().map_err(|e| e.to_string())?;
             *r.lock().unwrap() = config.sample_rate().0;
             let channels = config.channels() as usize;
+            let rate_hz = config.sample_rate().0 as f32;
             let sink = s.clone();
             let level_app = app.clone();
             let mut last_level = std::time::Instant::now();
@@ -134,7 +135,7 @@ fn start(app: AppHandle) -> Result<Recording, String> {
                 let mono: Vec<f32> = data.chunks(channels).map(|c| c.iter().sum::<f32>() / channels as f32).collect();
                 if last_level.elapsed().as_millis() >= 50 {
                     let rms = (mono.iter().map(|x| x * x).sum::<f32>() / mono.len().max(1) as f32).sqrt();
-                    emit(&level_app, Event::Level { level: (rms * 8.0).min(1.0) });
+                    emit(&level_app, Event::Level { level: (rms * 8.0).min(1.0), bands: bands(&mono, rate_hz) });
                     last_level = std::time::Instant::now();
                 }
                 sink.lock().unwrap().extend(mono);
@@ -243,5 +244,56 @@ mod tests {
         let out = super::resample(&input, 48_000);
         assert_eq!(out.len(), 16_000);
         assert!((out[8_000] - 0.5).abs() < 0.001);
+    }
+}
+
+/// Громкость по четырём полосам частот для сферы — как AudioRecorder на маке: 80–300 Гц, 300–1000,
+/// 1–3 кГц, 3–8 кГц, в децибелах (тихая речь видна), у каждой полосы свой потолок, 35 дБ ниже — ноль.
+/// Окно Ханна на 1024 отсчёта; считаем только нужные частоты, полное БПФ не нужно.
+pub fn bands(samples: &[f32], rate: f32) -> [f32; 4] {
+    const N: usize = 1024;
+    const EDGES: [f32; 5] = [80.0, 300.0, 1000.0, 3000.0, 8000.0];
+    const CEILINGS: [f32; 4] = [-38.0, -45.0, -55.0, -64.0];
+    if samples.len() < 64 {
+        return [0.0; 4];
+    }
+    let frame: Vec<f32> = (0..N)
+        .map(|i| samples.get(i).copied().unwrap_or(0.0) * (0.5 - 0.5 * (2.0 * std::f32::consts::PI * i as f32 / (N - 1) as f32).cos()))
+        .collect();
+    let hz = rate / N as f32;
+    let mut out = [0.0f32; 4];
+    for b in 0..4 {
+        let lo = ((EDGES[b] / hz) as usize).max(1);
+        let hi = ((EDGES[b + 1] / hz) as usize).min(N / 2 - 1);
+        if hi < lo {
+            continue;
+        }
+        let mut energy = 0.0f32;
+        for k in lo..=hi {
+            let w = -2.0 * std::f32::consts::PI * k as f32 / N as f32;
+            let (mut re, mut im) = (0.0f32, 0.0f32);
+            for (i, x) in frame.iter().enumerate() {
+                let a = w * i as f32;
+                re += x * a.cos();
+                im += x * a.sin();
+            }
+            // Как vDSP на маке: его вещественное БПФ даёт вдвое больший спектр — мощность ×4.
+            energy += 4.0 * (re * re + im * im);
+        }
+        energy /= (hi - lo + 1) as f32;
+        let db = 10.0 * (energy / (N * N) as f32 + 1e-12).log10();
+        out[b] = ((db - CEILINGS[b] + 35.0) / 35.0).clamp(0.0, 1.0);
+    }
+    out
+}
+
+#[cfg(test)]
+mod band_tests {
+    #[test]
+    fn tone_lights_its_band() {
+        let tone: Vec<f32> = (0..1024).map(|i| 0.3 * (2.0 * std::f32::consts::PI * 1500.0 * i as f32 / 16_000.0).sin()).collect();
+        let b = super::bands(&tone, 16_000.0);
+        assert!(b[2] > 0.8 && b[0] < 0.3, "{b:?}");
+        assert_eq!(super::bands(&vec![0.0; 1024], 16_000.0), [0.0; 4]);
     }
 }
