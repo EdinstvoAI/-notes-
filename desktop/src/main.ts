@@ -304,6 +304,7 @@ function bindEditor() {
     const path = state.selection.path;
     clearTimeout(saveTimer);
     saveTimer = window.setTimeout(async () => {
+      saveTimer = 0;
       await backend.write(path, state.text);
       state.saved = Date.now();
       const meta = page.querySelector(".note-meta");
@@ -648,6 +649,28 @@ export const shell = { get backend() { return backend; }, get state() { return s
   if (state.tree) state.pins = await backend.pins();
   if (backend.inTauri) void enableFileDrop(dragHost);
   void refreshSync();
+  // Правки снаружи (другой редактор, git, синхронизация): перечитать дерево; открытую заметку — если
+  // своих несохранённых правок в ней нет, иначе своё не затираем (сохранится через полсекунды).
+  if (backend.inTauri) {
+    const { listen } = await import("@tauri-apps/api/event");
+    void listen<string[]>("vault-changed", async (e) => {
+      await reload();
+      const open = state.selection.kind === "note" ? state.selection.path : null;
+      if (open && e.payload.includes(open) && !saveTimer) {
+        const fresh = await backend.read(open).catch(() => null);
+        if (fresh === null) {
+          // Заметку удалили или перенесли снаружи — закрываем.
+          state.tabs = state.tabs.filter((p) => p !== open);
+          state.selection = { kind: "folder", path: open.split("/").slice(0, -1).join("/") };
+          render();
+          return;
+        }
+        // Своё же сохранение — экран не трогаем (курсор остаётся где был).
+        if (fresh !== state.text) { state.text = fresh; lastKey = ""; render(); return; }
+      }
+      renderSidebar();
+    });
+  }
   const demo = new URLSearchParams(location.search).get("open");
   render();
   paintSlats();

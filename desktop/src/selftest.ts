@@ -47,6 +47,10 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     await check("duplicate and move", moved === "итоги копия.md");
     await backend.trash(moved!);
     await check("trash", !(await backend.tree()).notes.some((n) => n.path === moved));
+    // Правки снаружи: файл появился в папке — панель узнаёт сама.
+    await backend.write("снаружи.md", "из другого редактора\n");
+    await pause(1500);
+    await check("external change shows in sidebar", !!ui.app.querySelector('.sidebar [data-note="снаружи.md"]'));
     const daily = await backend.daily("2026-11-01", "09:00");
     await check("daily note", daily === "дневник/2026-11-01.md");
     await ui.openNote("Входящие.md");

@@ -5,6 +5,7 @@ mod dictation;
 mod github;
 mod platform;
 mod video;
+mod watch;
 
 use notes_core::{Folder, Vault};
 use serde::Serialize;
@@ -38,6 +39,7 @@ fn with_vault<T>(state: &State<AppState>, f: impl FnOnce(&Vault) -> Result<T, St
 fn open_vault(path: String, state: State<AppState>, app: tauri::AppHandle) -> Result<Folder, String> {
     let vault = Vault::open(&path).map_err(|e| e.to_string())?;
     let tree = vault.tree();
+    watch::watch(app.clone(), vault.root().to_path_buf());
     *state.vault.lock().map_err(|e| e.to_string())? = Some(vault);
     platform::settings::save_vault_path(&app, &path);
     Ok(tree)
@@ -49,6 +51,7 @@ fn last_vault(state: State<AppState>, app: tauri::AppHandle) -> Option<Folder> {
     let path = platform::settings::load_vault_path(&app)?;
     let vault = Vault::open(path).ok()?;
     let tree = vault.tree();
+    watch::watch(app.clone(), vault.root().to_path_buf());
     *state.vault.lock().ok()? = Some(vault);
     Some(tree)
 }
