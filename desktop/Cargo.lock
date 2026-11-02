@@ -3019,6 +3019,7 @@ dependencies = [
  "cpal",
  "keyring",
  "notes-core",
+ "notes-embed",
  "notes-speech",
  "raw-window-handle",
  "serde",

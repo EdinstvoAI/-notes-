@@ -13,6 +13,8 @@ use tauri::{Emitter, Manager, State};
 /// Открытое хранилище. Путь к нему — в настройках приложения (вне хранилища).
 #[derive(Default)]
 struct AppState {
+    /// Модель поиска по смыслу — загружается один раз, при первом поиске.
+    embedder: Mutex<Option<notes_embed::Embedder>>,
     vault: Mutex<Option<Vault>>,
     /// Ушли с экрана входа — опрос GitHub прекращается.
     login_cancelled: std::sync::atomic::AtomicBool,
@@ -484,6 +486,67 @@ fn sherpa_onnx_wave(path: &str) -> Result<Vec<f32>, String> {
     Ok(bytes[at..].chunks_exact(2).map(|c| i16::from_le_bytes([c[0], c[1]]) as f32 / 32768.0).collect())
 }
 
+fn e5_folder(app: &tauri::AppHandle) -> std::path::PathBuf {
+    app.path().app_data_dir().unwrap_or_default().join("models").join("multilingual-e5-small")
+}
+
+#[tauri::command]
+fn meaning_installed(app: tauri::AppHandle) -> bool {
+    notes_embed::is_installed(&e5_folder(&app))
+}
+
+/// Скачать модель поиска по смыслу; ход — событием `meaning-progress`.
+#[tauri::command]
+async fn meaning_download(app: tauri::AppHandle) -> Result<(), String> {
+    let folder = e5_folder(&app);
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || notes_embed::download(&folder, |p| { let _ = handle.emit("meaning-progress", p); }))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Поиск по смыслу: сначала дообновить индекс (только изменённые заметки), потом сравнить.
+/// Пусто — модель не скачана.
+#[tauri::command]
+async fn meaning_search(query: String, app: tauri::AppHandle) -> Result<Vec<(String, f32)>, String> {
+    if !notes_embed::is_installed(&e5_folder(&app)) {
+        return Ok(Vec::new());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let vault = state.vault.lock().map_err(|e| e.to_string())?.clone().ok_or("no vault open")?;
+        let mut embedder = state.embedder.lock().map_err(|e| e.to_string())?;
+        if embedder.is_none() {
+            *embedder = Some(notes_embed::Embedder::load(&e5_folder(&app))?);
+        }
+        let e = embedder.as_ref().unwrap();
+        let path = notes_embed::index_path(&app.path().app_local_data_dir().unwrap_or_default(), &vault.root().display().to_string());
+        let mut index = notes_embed::Index::load(&path);
+        let notes = notes_core::search::all_notes(&vault.tree());
+        let rows = notes.into_iter().filter_map(|n| Some((n.path.clone(), n.modified, n.title.clone(), vault.read(&n.path).ok()?)));
+        if index.update(e, rows)? > 0 {
+            let _ = index.save(&path);
+        }
+        Ok(index.search(&e.query(&query)?, 10))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Самопроверка: положить скачанную заранее модель e5 в папку моделей приложения.
+#[tauri::command]
+fn selftest_install_e5(from: String, app: tauri::AppHandle) -> Result<(), String> {
+    if !selftest() {
+        return Err("only in self-test".into());
+    }
+    let to = e5_folder(&app);
+    std::fs::create_dir_all(&to).map_err(|e| e.to_string())?;
+    for (name, _) in notes_embed::FILES {
+        std::fs::copy(std::path::Path::new(&from).join(name), to.join(name)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Какая ОС — интерфейс выбирает стекло окна (Mica на Windows, Liquid Glass на маке).
 #[tauri::command]
 fn os() -> &'static str {
@@ -525,7 +588,8 @@ pub fn run() {
             set_due, set_done, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, selftest, selftest_slow, selftest_log, selftest_env,
             github_status, github_code, github_finish, github_cancel, github_sign_out, github_sync, open_github,
             lock_state, lock_seen, lock_needed_on_return, pin_set, pin_clear, pin_check, hello_verify,
-            dictation_toggle, models, model_download, model_remove, dictation_test
+            dictation_toggle, models, model_download, model_remove, dictation_test,
+            meaning_installed, meaning_download, meaning_search, selftest_install_e5
         ])
         .run(tauri::generate_context!())
         .expect("error while running <notes>");

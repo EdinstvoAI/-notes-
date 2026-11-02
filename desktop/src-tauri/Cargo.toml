@@ -21,6 +21,7 @@ ureq = { version = "2", features = ["json"] }
 keyring = { version = "3", features = ["windows-native", "apple-native", "linux-native"] }
 raw-window-handle = "0.6"
 notes-speech = { path = "../speech" }
+notes-embed = { path = "../embed" }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-clipboard-manager = "2"
 cpal = "0.15"

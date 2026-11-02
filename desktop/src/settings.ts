@@ -6,10 +6,11 @@ import type { Api, Prefs } from "./api";
 import { icon, type Glyph } from "./icons";
 import { choosePin, lockApi, type LockState } from "./lock";
 
-type Page = "general" | "sync" | "templates" | "calendar" | "dictation" | "lock";
+type Page = "general" | "sync" | "search" | "templates" | "calendar" | "dictation" | "lock";
 const PAGES: [Page, string, string, Glyph][] = [
   ["general", "общие", "вид, запуск и текст заметок", "settings"],
   ["sync", "синхронизация", "где лежат заметки и куда уходят", "git"],
+  ["search", "поиск", "по словам и по смыслу", "search"],
   ["templates", "шаблоны", "шаблоны заметок и автоматизация", "file"],
   ["calendar", "календарь", "задачи со сроком в календаре", "calendar"],
   ["dictation", "надиктовка", "текст сразу в буфере", "microphone"],
@@ -55,6 +56,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   type ModelInfo = { id: string; installed: boolean; download_mb: number };
   let models: ModelInfo[] = host.backend.inTauri ? await invoke<ModelInfo[]>("models") : [];
   let downloading: number | null = null;
+  let meaning = host.backend.inTauri ? await invoke<boolean>("meaning_installed") : false;
   let lock: LockState | null = host.backend.inTauri ? await lockApi.state() : null;
   let gh = await host.backend.githubStatus();
   // Вход по коду: код на экране, пока ждём подтверждения на github.com.
@@ -81,6 +83,14 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
             + row("последняя версия", ago(git.last_commit) + (git.pending ? ` · несохранённых файлов: ${git.pending}` : ""), pill("commit", "сохранить сейчас")) : "")
           + githubRows()
           + note("папка та же, что на маке: заметки — обычные файлы .md, окончания строк не меняются");
+      case "search": {
+        const status = !host.backend.inTauri ? later("в браузере нет")
+          : downloading !== null ? `<span class="later">${Math.round(downloading * 100)}%</span>`
+          : meaning ? granted("скачана") : pill("meaning-get", "скачать 471 мб");
+        return row("по словам", "заметки, задачи — всегда, без модели", granted("включено"))
+          + row("по смыслу", "multilingual-e5-small: находит заметку, даже если слов из запроса в ней нет", status)
+          + note("модель работает на этом компьютере, индекс — в данных приложения, не в папке заметок");
+      }
       case "templates":
         return row("папка шаблонов", "обычные .md в папке «шаблоны»: {{дата}}, {{время}}, {{название}}", pill("templates", "открыть"))
           + row("заметка на каждый день", "в папке «дневник» по шаблону «день», открывается при запуске", toggle("daily", prefs.daily ?? false));
@@ -176,6 +186,22 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       stop();
       downloading = null;
       models = await invoke<ModelInfo[]>("models");
+      render();
+    } else if (b.dataset.set === "meaning-get") {
+      const { listen } = await import("@tauri-apps/api/event");
+      downloading = 0;
+      render();
+      const stop = await listen<number>("meaning-progress", (e) => {
+        downloading = e.payload;
+        const s = root.querySelector(".setting:nth-child(2) .later");
+        if (s) s.textContent = `${Math.round(e.payload * 100)}%`;
+      });
+      try { await invoke("meaning_download"); } catch (error) {
+        root.querySelector(".settings-rows")?.insertAdjacentHTML("beforeend", note(`не скачалось: ${esc(String(error))}`));
+      }
+      stop();
+      downloading = null;
+      meaning = await invoke<boolean>("meaning_installed");
       render();
     } else if (b.dataset.set === "model-remove") {
       await invoke("model_remove");

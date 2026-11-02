@@ -6,7 +6,7 @@ import type { Hit, Note, TaskRow } from "./api";
 import { icon, type Glyph } from "./icons";
 import { shell } from "./main";
 
-type Result = { kind: "заметки" | "задачи"; title: string; detail: string; snippet: string | null; path: string; glyph: Glyph };
+type Result = { kind: "заметки" | "задачи" | "по смыслу"; title: string; detail: string; snippet: string | null; path: string; glyph: Glyph };
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const folderOf = (path: string) => {
@@ -73,6 +73,17 @@ async function query(text: string) {
         snippet: null, path: t.note, glyph: "taskDone" })),
   ];
   renderResults(text);
+  // По смыслу — модель на этом компьютере (если скачана): заметки, где нет тех же слов.
+  if (!shell.backend.inTauri) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  const meaning = await invoke<[string, number][]>("meaning_search", { query: text }).catch(() => []);
+  if (mine !== token || !overlay || !meaning.length) return;
+  const shown = new Set(results.map((r) => r.path));
+  const best = meaning[0][1];
+  const extra = meaning.filter(([p, s]) => !shown.has(p) && s >= 0.78 && s >= best - 0.05).slice(0, 5);
+  results.push(...extra.map(([path]): Result => ({ kind: "по смыслу", title: path.split("/").pop()!.replace(/\.md$/, ""),
+    detail: folderOf(path), snippet: null, path, glyph: "file" })));
+  renderResults(text);
 }
 
 function choose(i: number) {
@@ -92,7 +103,7 @@ export function openSearch() {
       <label class="search-field">${icon("search", 20)}<input placeholder="найти" spellcheck="false"><span class="search-count"></span></label>
       <div class="search-results"></div>
       <footer><span><kbd class="keycap">↑↓</kbd> выбрать</span><span><kbd class="keycap">enter</kbd> открыть</span>
-        <span><kbd class="keycap">esc</kbd> закрыть</span><em>заметки и задачи</em></footer>
+        <span><kbd class="keycap">esc</kbd> закрыть</span><em>заметки, задачи и по смыслу</em></footer>
     </div>`;
   document.body.append(overlay);
   const input = overlay.querySelector("input")!;

@@ -67,6 +67,14 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     await check("right pin unlocks", document.querySelector(".unlock") === null);
     await lockApi.clear();
     await check("pin cleared", !(await lockApi.state()).has_pin);
+    // Поиск по смыслу: модель кладём из NOTES_SELFTEST_E5 (облако не качает с Hugging Face своим клиентом).
+    const e5 = await invoke<string | null>("selftest_env", { name: "NOTES_SELFTEST_E5" });
+    if (e5) {
+      await backend.write("проекты/счёт.md", "# счёт клиенту\n\nВыставить счёт студии за макеты лендинга, оплата до пятницы.\n");
+      await invoke("selftest_install_e5", { from: e5 });
+      const hits = await invoke<[string, number][]>("meaning_search", { query: "сколько мне заплатят за дизайн" });
+      await check(`meaning search → ${hits[0]?.[0]}`, hits[0]?.[0] === "проекты/счёт.md");
+    }
     // Надиктовка без микрофона: WAV модели проходит весь путь до буфера обмена (как -dictationTestFile).
     const archive = await invoke<string | null>("selftest_env", { name: "NOTES_SELFTEST_GIGAAM" });
     if (archive) {
