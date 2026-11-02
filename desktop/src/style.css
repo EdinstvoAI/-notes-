@@ -432,3 +432,11 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .transcript .speaker-name { border: 0; outline: 0; background: none; user-select: text; }
 .transcript time { color: var(--gray); font-size: 11px; padding-top: 3px; }
 .transcript p { line-height: 1.55; user-select: text; }
+
+/* ——— первый вход (OnboardingSteps на маке): лист входа, коралловая капсула, тихая ссылка ——— */
+.onboarding .unlock-sheet p { max-width: 380px; line-height: 1.45; }
+.coral-capsule { margin-top: 120px; height: 44px; padding: 0 28px; border-radius: 22px; background: var(--coral); color: #fff; font-size: 15px;
+  transition: transform .2s var(--smooth); }
+.coral-capsule:hover { transform: scale(1.03); }
+.onboarding .quiet { margin-top: 16px; font-size: 13px; }
+.device-code.big { margin-top: 40px; font-size: 28px; padding: 10px 22px; }

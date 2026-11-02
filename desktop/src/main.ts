@@ -674,6 +674,11 @@ export const shell = { get backend() { return backend; }, get state() { return s
     });
   }
   state.tree = await backend.lastVault();
+  // Первый вход: папки ещё нет — шаги как на маке (в браузере — демо-хранилище, шагов нет).
+  if (!state.tree && backend.inTauri) {
+    const { runOnboarding } = await import("./onboarding");
+    state.tree = await runOnboarding(backend);
+  }
   if (state.tree) state.pins = await backend.pins();
   if (backend.inTauri) void enableFileDrop(dragHost);
   void refreshSync();

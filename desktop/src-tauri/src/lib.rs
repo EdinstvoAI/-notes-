@@ -45,6 +45,20 @@ fn open_vault(path: String, state: State<AppState>, app: tauri::AppHandle) -> Re
     Ok(tree)
 }
 
+/// «создать новую» на первом входе: папка «заметки» в Документах (занято — «заметки 2»), сразу открыта.
+#[tauri::command]
+fn create_vault(state: State<AppState>, app: tauri::AppHandle) -> Result<Folder, String> {
+    let docs = app.path().document_dir().map_err(|e| e.to_string())?;
+    let mut path = docs.join("заметки");
+    let mut n = 2;
+    while path.exists() {
+        path = docs.join(format!("заметки {n}"));
+        n += 1;
+    }
+    std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+    open_vault(path.to_string_lossy().into_owned(), state, app)
+}
+
 /// Хранилище с прошлого запуска, если папка ещё на месте.
 #[tauri::command]
 fn last_vault(state: State<AppState>, app: tauri::AppHandle) -> Option<Folder> {
@@ -664,7 +678,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            open_vault, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
+            open_vault, create_vault, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
             create_folder, duplicate, move_into, copy_in, trash, untrash, reveal, pins, set_pins,
             templates, create_from_template, daily,
             set_due, set_done, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, selftest, selftest_slow, selftest_log, selftest_env,
