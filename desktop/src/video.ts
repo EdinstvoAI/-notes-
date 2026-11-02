@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { icon } from "./icons";
 import { showMenu } from "./menu";
+import { DROPZONE, shader } from "./gl";
 
 interface Item { id: string; title: string; source: string; added: string; duration: number; words: number | null; error?: string | null }
 interface Segment { start: number; end: number; text: string; speaker?: number }
@@ -23,6 +24,27 @@ const clock = (t: number) => {
 const nowStamp = () => { const d = new Date(), p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 
 let open: string | null = null;
+
+/** Зона «перетащите» — шейдер DropZone.metal: стеклянные планки, за ними плывут тёплые пятна. */
+function animateZone() {
+  const zone = document.querySelector<HTMLElement>(".drop-zone");
+  const canvas = zone?.querySelector<HTMLCanvasElement>(".drop-canvas");
+  if (!zone || !canvas) return;
+  const draw = shader(canvas, DROPZONE);
+  if (!draw) return;
+  let on = 0, target = 0;
+  zone.addEventListener("pointerenter", () => (target = 1));
+  zone.addEventListener("pointerleave", () => (target = 0));
+  const start = performance.now();
+  const dark = () => document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
+  const frame = (now: number) => {
+    if (!canvas.isConnected) return;
+    on += (target - on) * 0.08;
+    draw({ t: (now - start) / 1000, on, dark: dark() ? 1 : 0, scale: devicePixelRatio || 1 });
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
 
 /** Добавить файлы (из окна выбора или перетащенные из Проводника). */
 export async function addFiles(paths: string[]) {
@@ -47,7 +69,7 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
   const dropZone = () => `<div class="video">
     <h1>видео</h1><p class="video-sub">расшифровка на этом компьютере · ${items.length} ${items.length === 1 ? "файл" : "файлов"}</p>
     <button class="drop-zone" data-pick>
-      <span class="drop-slats"></span>
+      <canvas class="drop-canvas"></canvas>
       <b>перетащите видео или аудио</b><small>${TYPES.join(", ")}</small>
     </button></div>`;
 
@@ -86,7 +108,7 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
     renderSidebar();
     const item = items.find((i) => i.id === open);
     host.onCrumb(item ? `видео / ${item.title}` : "видео");
-    if (item) await renderItem(item); else root.innerHTML = dropZone();
+    if (item) await renderItem(item); else { root.innerHTML = dropZone(); animateZone(); }
   }
 
   root.addEventListener("click", async (e) => {
