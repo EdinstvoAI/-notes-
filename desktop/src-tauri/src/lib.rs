@@ -643,6 +643,16 @@ fn video_srt(id: String, path: String, app: tauri::AppHandle) -> Result<(), Stri
     std::fs::write(path, video::get(&app, &id).ok_or("нет расшифровки")?.srt()).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn autostart() -> bool {
+    platform::autostart::enabled()
+}
+
+#[tauri::command]
+fn set_autostart(on: bool) -> Result<(), String> {
+    platform::autostart::set(on)
+}
+
 /// Какая ОС — интерфейс выбирает стекло окна (Mica на Windows, Liquid Glass на маке).
 #[tauri::command]
 fn os() -> &'static str {
@@ -687,7 +697,7 @@ pub fn run() {
             dictation_toggle, models, model_download, model_remove, dictation_test,
             meaning_installed, meaning_download, meaning_search, selftest_install_e5,
             video_list, video_add, video_get, video_rename_speaker, video_delete, video_save_note, video_srt,
-            video_mark, speakers_installed, speakers_download, selftest_install_speakers
+            video_mark, autostart, set_autostart, speakers_installed, speakers_download, selftest_install_speakers
         ])
         .run(tauri::generate_context!())
         .expect("error while running <notes>");

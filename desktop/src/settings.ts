@@ -56,6 +56,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   type ModelInfo = { id: string; installed: boolean; download_mb: number };
   let models: ModelInfo[] = host.backend.inTauri ? await invoke<ModelInfo[]>("models") : [];
   let downloading: number | null = null;
+  let autostartOn = host.backend.inTauri ? await invoke<boolean>("autostart") : false;
   let speakers = host.backend.inTauri ? await invoke<boolean>("speakers_installed") : false;
   let meaning = host.backend.inTauri ? await invoke<boolean>("meaning_installed") : false;
   let lock: LockState | null = host.backend.inTauri ? await lockApi.state() : null;
@@ -75,7 +76,8 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
         return row("тема", "как в системе, светлая или тёмная", choice("theme", prefs.theme ?? "system", [["system", "система"], ["light", "светлая"], ["dark", "тёмная"]]))
           + row("размер текста заметок", `${prefs.textSize ?? 15} — заголовки растут вместе с текстом`, choice("textSize", prefs.textSize ?? 15, [13, 15, 17, 19].map((n) => [n, String(n)])))
           + row("проверка орфографии", "подчёркивать слова с ошибкой", toggle("spellcheck", prefs.spellcheck ?? true))
-          + row("открывать при входе в " + (isMac ? "mac" : "windows"), "сразу после включения компьютера", later());
+          + row("открывать при входе в " + (isMac ? "mac" : "windows"), "сразу после включения компьютера",
+            host.backend.inTauri && !isMac ? toggle("autostart", autostartOn) : later());
       case "sync":
         return row("папка хранилища", esc(vault ?? "не выбрана"), pill("vault", "изменить"))
           + row("история в git", git.repo ? `${git.commits} ${plural(git.commits, "версия", "версии", "версий")} · любую правку можно откатить` : "версии сохраняются по расписанию",
@@ -154,6 +156,12 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   root.addEventListener("click", async (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>("button");
     if (!b) return;
+    if (b.dataset.toggle === "autostart") {
+      await invoke("set_autostart", { on: !autostartOn }).catch(() => {});
+      autostartOn = await invoke<boolean>("autostart");
+      render();
+      return;
+    }
     if (b.dataset.toggle) {
       const key = b.dataset.toggle as "spellcheck" | "daily";
       const current = prefs[key] ?? (key === "spellcheck");
