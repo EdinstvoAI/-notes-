@@ -1,5 +1,5 @@
 [workspace]
-members = ["core", "speech", "src-tauri"]
+members = ["core", "speech", "embed", "src-tauri"]
 resolver = "2"
 
 [workspace.package]

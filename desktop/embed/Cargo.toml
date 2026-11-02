@@ -1,0 +1,19 @@
+[package]
+name = "notes-embed"
+description = "Search by meaning for <notes>: multilingual-e5-small on this computer, index outside the vault."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+candle-core = "0.9"
+candle-nn = "0.9"
+candle-transformers = "0.9"
+tokenizers = { version = "0.21", default-features = false, features = ["onig"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+ureq = "2"
+
+[dev-dependencies]
+tempfile = "3"
