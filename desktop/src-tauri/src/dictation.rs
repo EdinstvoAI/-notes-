@@ -203,6 +203,11 @@ pub fn recognize(app: AppHandle, samples: Vec<f32>) {
             Ok(text) if !text.is_empty() => {
                 use tauri_plugin_clipboard_manager::ClipboardExt;
                 let _ = app.clipboard().write_text(text.clone());
+                // «Вставлять в поле» (настройки → надиктовка) — Ctrl+V за человека.
+                if crate::platform::settings::pref_bool(&app, "paste") {
+                    std::thread::sleep(std::time::Duration::from_millis(150));
+                    crate::platform::paste::ctrl_v();
+                }
                 emit(&app, Event::Copied { text });
             }
             Ok(_) => emit(&app, Event::Idle),

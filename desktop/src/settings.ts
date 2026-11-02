@@ -56,6 +56,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   type ModelInfo = { id: string; installed: boolean; download_mb: number };
   let models: ModelInfo[] = host.backend.inTauri ? await invoke<ModelInfo[]>("models") : [];
   let downloading: number | null = null;
+  let recording = false;
   let autostartOn = host.backend.inTauri ? await invoke<boolean>("autostart") : false;
   let speakers = host.backend.inTauri ? await invoke<boolean>("speakers_installed") : false;
   let meaning = host.backend.inTauri ? await invoke<boolean>("meaning_installed") : false;
@@ -102,17 +103,17 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
           + row(isMac ? "календарь apple" : "календарь windows и outlook", isMac ? "переезжает с мака" : "файл .ics со всеми задачами со сроком", isMac ? later() : pill("ics", "сохранить .ics"))
           + note(isMac ? "" : "системный календарь windows закрыт для приложений не из store — поэтому .ics");
       case "dictation": {
-        const hotkey = isMac ? "⌥ space" : "ctrl + alt + space";
+        const hotkey = recording ? "нажмите сочетание…" : (prefs.hotkey ?? (isMac ? "alt+space" : "ctrl+alt+space")).split("+").join(" + ");
         const gigaam = models.find((m) => m.id === "gigaam-v3-punct");
         const status = !host.backend.inTauri ? later("в браузере нет")
           : downloading !== null ? `<span class="later">${Math.round(downloading * 100)}%</span>`
           : gigaam?.installed ? `${granted("скачана")}${pill("model-remove", "удалить")}` : pill("model-get", `скачать ${gigaam?.download_mb ?? 176} мб`);
-        return row("горячая клавиша", `${hotkey} — нажать, сказать, нажать ещё раз: текст в буфере`, `<span class="device-code">${hotkey}</span>`)
+        return row("горячая клавиша", "нажать, сказать, нажать ещё раз: текст в буфере", `<span class="device-code">${hotkey}</span>${host.backend.inTauri ? pill("hotkey", "изменить") : ""}`)
           + row("gigaam", "русский с пунктуацией, распознаёт на этом компьютере", status)
           + row("спикеры", "кто что сказал в расшифровке видео · 35 мб", !host.backend.inTauri ? later("в браузере нет")
             : speakers ? granted("скачаны") : pill("speakers-get", "скачать"))
           + row("whisper", "99 языков", later())
-          + row("вставлять в поле", "в поле, где курсор", later())
+          + row("вставлять в поле", "ctrl+v за вас в поле, где курсор; иначе — только буфер", host.backend.inTauri ? toggle("paste", prefs.paste ?? false) : later())
           + note("модели не входят в приложение: качаются один раз и проверяются по контрольной сумме");
       }
       case "lock":
@@ -163,7 +164,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       return;
     }
     if (b.dataset.toggle) {
-      const key = b.dataset.toggle as "spellcheck" | "daily";
+      const key = b.dataset.toggle as "spellcheck" | "daily" | "paste";
       const current = prefs[key] ?? (key === "spellcheck");
       await save({ ...prefs, [key]: !current });
     } else if (b.dataset.choice) {
@@ -214,6 +215,25 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       downloading = null;
       meaning = await invoke<boolean>("meaning_installed");
       render();
+    } else if (b.dataset.set === "hotkey") {
+      // Следующее нажатие с Ctrl/Alt/Win (или F-клавиша) — новый хоткей; Esc — отмена.
+      recording = true;
+      render();
+      const onKey = async (k: KeyboardEvent) => {
+        k.preventDefault(); k.stopPropagation();
+        if (k.key === "Escape") { done(); return; }
+        if (["Control", "Alt", "Shift", "Meta"].includes(k.key)) return;
+        const name = k.code === "Space" ? "space" : k.code.replace(/^Key|^Digit/, "").toLowerCase();
+        const combo = [k.ctrlKey && "ctrl", k.altKey && "alt", k.shiftKey && "shift", k.metaKey && "super", name].filter(Boolean).join("+");
+        try {
+          await invoke("set_hotkey", { combo });
+          await host.backend.setPrefs({ ...prefs, hotkey: combo });
+          prefs = { ...prefs, hotkey: combo };
+          done();
+        } catch (error) { done(); root.querySelector(".settings-rows")?.insertAdjacentHTML("beforeend", note(esc(String(error)))); }
+      };
+      const done = () => { recording = false; removeEventListener("keydown", onKey, true); render(); };
+      addEventListener("keydown", onKey, true);
     } else if (b.dataset.set === "speakers-get") {
       b.textContent = "качаем…";
       try { await invoke("speakers_download"); } catch (error) {

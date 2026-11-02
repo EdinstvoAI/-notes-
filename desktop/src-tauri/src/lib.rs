@@ -653,6 +653,27 @@ fn set_autostart(on: bool) -> Result<(), String> {
     platform::autostart::set(on)
 }
 
+/// Сменить хоткей надиктовки. Без Ctrl, Alt или Win не даём (перехватили бы обычный набор), F-клавиши
+/// можно — как на маке. Занят другой программой — Windows откажет, остаётся старый.
+#[tauri::command]
+fn set_hotkey(combo: String, app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+    let lower = combo.to_lowercase();
+    let modifier = ["ctrl", "alt", "super", "cmd"].iter().any(|m| lower.contains(m));
+    let fkey = lower.split('+').last().is_some_and(|k| k.starts_with('f') && k[1..].parse::<u8>().is_ok());
+    if !modifier && !fkey {
+        return Err("нужен ctrl, alt или win".into());
+    }
+    let gs = app.global_shortcut();
+    let old = platform::settings::pref_str(&app, "hotkey").unwrap_or_else(|| DICTATION_SHORTCUT.into());
+    let _ = gs.unregister(old.as_str());
+    if let Err(e) = gs.register(combo.as_str()) {
+        let _ = gs.register(old.as_str());
+        return Err(format!("занято другой программой: {e}"));
+    }
+    Ok(())
+}
+
 /// Какая ОС — интерфейс выбирает стекло окна (Mica на Windows, Liquid Glass на маке).
 #[tauri::command]
 fn os() -> &'static str {
@@ -685,6 +706,14 @@ pub fn run() {
                 platform::window::apply_glass(&window);
             }
             dictation::create_orb(app.handle())?;
+            // Свой хоткей из настроек — вместо стандартного.
+            if let Some(h) = platform::settings::pref_str(app.handle(), "hotkey") {
+                use tauri_plugin_global_shortcut::GlobalShortcutExt;
+                let gs = app.global_shortcut();
+                if gs.register(h.as_str()).is_ok() {
+                    let _ = gs.unregister(DICTATION_SHORTCUT);
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -697,7 +726,7 @@ pub fn run() {
             dictation_toggle, models, model_download, model_remove, dictation_test,
             meaning_installed, meaning_download, meaning_search, selftest_install_e5,
             video_list, video_add, video_get, video_rename_speaker, video_delete, video_save_note, video_srt,
-            video_mark, autostart, set_autostart, speakers_installed, speakers_download, selftest_install_speakers
+            video_mark, autostart, set_autostart, set_hotkey, speakers_installed, speakers_download, selftest_install_speakers
         ])
         .run(tauri::generate_context!())
         .expect("error while running <notes>");

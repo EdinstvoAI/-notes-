@@ -8,6 +8,7 @@
 pub mod auth;
 pub mod autostart;
 pub mod files;
+pub mod paste;
 pub mod secrets;
 pub mod settings;
 pub mod window;

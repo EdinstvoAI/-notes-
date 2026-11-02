@@ -66,3 +66,12 @@ pub fn save_lock(app: &AppHandle, lock: &LockFile) {
         save(app, "lock.json", &t);
     }
 }
+
+/// Одна настройка из `prefs.json` (её пишет интерфейс).
+pub fn pref_bool(app: &AppHandle, key: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(&prefs(app)).ok().and_then(|v| v.get(key)?.as_bool()).unwrap_or(false)
+}
+
+pub fn pref_str(app: &AppHandle, key: &str) -> Option<String> {
+    serde_json::from_str::<serde_json::Value>(&prefs(app)).ok().and_then(|v| Some(v.get(key)?.as_str()?.to_string()))
+}

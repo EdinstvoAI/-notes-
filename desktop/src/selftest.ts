@@ -56,6 +56,10 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     const daily = await backend.daily("2026-11-01", "09:00");
     await check("daily note", daily === "дневник/2026-11-01.md");
     await ui.openNote("Входящие.md");
+    // Хоткей: своё сочетание регистрируется, без Ctrl/Alt/Win — нет.
+    const okKey = await invoke("set_hotkey", { combo: "ctrl+alt+d" }).then(() => true).catch(() => false);
+    const badKey = await invoke("set_hotkey", { combo: "d" }).then(() => true).catch(() => false);
+    await check("hotkey change rules", okKey && !badKey);
     // Пинкод: хранилище паролей ОС, экран входа, неверный и верный ввод клавишами.
     const { lockApi, showUnlock } = await import("./lock");
     await lockApi.set("1234");

@@ -23,6 +23,10 @@ export interface Prefs {
   commitMinutes?: number;
   /** Последняя синхронизация с GitHub, мс. */
   lastSync?: number;
+  /** Надиктовка: вставлять в поле (Ctrl+V за человека). */
+  paste?: boolean;
+  /** Хоткей надиктовки, например «ctrl+alt+space». */
+  hotkey?: string;
 }
 
 export interface GithubStatus { signed_in: boolean; remote: string | null; unpushed: boolean }
