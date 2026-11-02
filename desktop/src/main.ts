@@ -150,6 +150,7 @@ function renderSidebar() {
         state.naming = null;
         if (create && parent !== null && input.value.trim()) {
           const path = await backend.createFolder(parent, input.value);
+          undoable("новая папка", () => backend.trash(path));
           state.tree = await backend.tree();
           if (parent) state.expanded.add(parent);
           state.selection = { kind: "folder", path };
@@ -411,6 +412,7 @@ app.addEventListener("click", async (e) => {
   } else if (el.dataset.act === "new-note" && state.tree) {
     const folder = state.selection.kind === "folder" ? state.selection.path : state.selection.path.split("/").slice(0, -1).join("/");
     const path = await backend.create(folder, "Новая заметка");
+    undoable("новая заметка", () => backend.trash(path));
     state.tree = await backend.tree();
     if (folder) state.expanded.add(folder);
     await openNote(path);
@@ -521,6 +523,22 @@ async function openDaily() {
   await openNote(path);
 }
 
+// ——— Ctrl+Z для действий с файлами (как ⌘Z на маке): удаление, перенос, дубль, новая заметка и папка.
+// В тексте заметки Ctrl+Z — правка текста, это делает сам редактор.
+const undoStack: { label: string; run: () => Promise<void> }[] = [];
+function undoable(label: string, run: () => Promise<void>) {
+  undoStack.push({ label, run });
+  if (undoStack.length > 50) undoStack.shift();
+}
+async function undo() {
+  const step = undoStack.pop();
+  if (!step) return;
+  try { await step.run(); } catch { /* файл уже убрали руками — нечего возвращать */ }
+  await reload();
+  lastKey = "";
+  render();
+}
+
 // ——— меню правого клика: как NoteMenu на маке ———
 const revealLabel = () => (document.body.classList.contains("tauri-macos") ? "Показать в Finder" : "Показать в Проводнике");
 const under = (path: string, root: string) => path === root || path.startsWith(root + "/");
@@ -542,6 +560,7 @@ function itemsFor(path: string, folder: boolean): MenuItem[] {
   } else {
     items.push({ label: "Новая заметка", run: async () => {
       const note = await backend.create(path, "Новая заметка");
+      undoable("новая заметка", () => backend.trash(note));
       await reload();
       if (path) state.expanded.add(path);
       await openNote(note);
@@ -558,11 +577,16 @@ function itemsFor(path: string, folder: boolean): MenuItem[] {
     } });
   }
   if (path) {
-    items.push({ label: "Дублировать", run: async () => { await backend.duplicate(path); await reload(); render(); } });
+    items.push({ label: "Дублировать", run: async () => {
+      const copy = await backend.duplicate(path);
+      undoable("дубль", () => backend.trash(copy));
+      await reload(); render();
+    } });
     if (backend.inTauri) items.push({ label: revealLabel(), run: () => void backend.reveal(path) });
     items.push("divider");
     items.push({ label: "Удалить", danger: true, run: async () => {
       await backend.trash(path);
+      undoable("удаление", () => backend.untrash(path));
       state.tabs = state.tabs.filter((p) => !under(p, path));
       state.pins = state.pins.filter((p) => !under(p, path));
       await backend.setPins(state.pins);
@@ -591,6 +615,8 @@ const dragHost: DragHost = {
   async move(path, folder) {
     const to = await backend.moveInto(path, folder);
     if (to === null) return;
+    const from = path.split("/").slice(0, -1).join("/");
+    undoable("перенос", async () => { await backend.moveInto(to, from); });
     // Открытая заметка, вкладки и закреплённые едут вместе с файлом.
     state.tabs = state.tabs.map((p) => rebase(p, path, to));
     state.pins = state.pins.map((p) => rebase(p, path, to));
@@ -616,6 +642,8 @@ enableDrag(sidebar, dragHost);
 // Ctrl+K — поиск (на маке ⌘K), Ctrl+N — новая заметка.
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && searchShown()) { closeSearch(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey
+    && !(e.target as HTMLElement).closest(".note-text, input, textarea")) { e.preventDefault(); void undo(); return; }
   if (!(e.ctrlKey || e.metaKey)) return;
   if (e.key.toLowerCase() === "k") { e.preventDefault(); searchShown() ? closeSearch() : openSearch(); return; }
   if (e.key.toLowerCase() === "w" && state.selection.kind === "note") { e.preventDefault(); closeTab(state.selection.path); return; }

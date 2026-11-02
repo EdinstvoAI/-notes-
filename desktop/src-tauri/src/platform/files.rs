@@ -39,3 +39,21 @@ pub fn open_github(url: &str) -> Result<(), String> {
     let status = Command::new("xdg-open").arg(url).spawn();
     status.map(|_| ()).map_err(|e| e.to_string())
 }
+
+/// Вернуть из Корзины на старое место — для Ctrl+Z после «удалить». На Windows и Linux через список
+/// Корзины; на маке Finder не даёт этого программам — там вернуть можно только руками.
+pub fn untrash(path: &Path) -> Result<(), String> {
+    #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+    {
+        let items = trash::os_limited::list().map_err(|e| e.to_string())?;
+        let mut found: Vec<_> = items.into_iter().filter(|i| i.original_path() == path).collect();
+        found.sort_by_key(|i| i.time_deleted);
+        let last = found.pop().ok_or("в корзине не нашли")?;
+        return trash::os_limited::restore_all([last]).map_err(|e| e.to_string());
+    }
+    #[allow(unreachable_code)]
+    {
+        let _ = path;
+        Err("на этой ОС вернуть из Корзины можно только руками".into())
+    }
+}

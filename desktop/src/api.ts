@@ -50,6 +50,7 @@ export interface Api {
   moveInto(path: string, folder: string): Promise<string | null>;
   copyIn(outside: string, folder: string): Promise<string>;
   trash(path: string): Promise<void>;
+  untrash(path: string): Promise<void>;
   reveal(path: string): Promise<void>;
   pins(): Promise<string[]>;
   templates(): Promise<string[]>;
@@ -105,6 +106,7 @@ async function tauriApi(): Promise<Api> {
     moveInto: (path, folder) => invoke<string | null>("move_into", { path, folder }),
     copyIn: (outside, folder) => invoke<string>("copy_in", { outside, folder }),
     trash: (path) => invoke<void>("trash", { path }),
+    untrash: (path) => invoke<void>("untrash", { path }),
     reveal: (path) => invoke<void>("reveal", { path }),
     pins: () => invoke<string[]>("pins"),
     templates: () => invoke<string[]>("templates"),
@@ -169,6 +171,7 @@ const demoDate = (date: string | null, time: string | null, minutes: number | nu
   return ` 📅 ${date} ${time}–${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
 };
 let demoPins: string[] = [];
+const demoTrash: Record<string, string> = {};
 const demoGithub = { signed: false, synced: 0 };
 const demoGit = { repo: true, last_commit: Math.floor(Date.now() / 1000) - 12 * 60 as number | null, commits: 42, pending: 0 };
 const demoFree = (want: (n: number) => string, taken: (p: string) => boolean) => {
@@ -278,8 +281,11 @@ const demoApi: Api = {
   },
   copyIn: async () => { throw new Error("no files outside in the browser"); },
   async trash(path) {
-    for (const k of Object.keys(demo)) if (k === path || k.startsWith(path + "/")) delete demo[k];
+    for (const k of Object.keys(demo)) if (k === path || k.startsWith(path + "/")) { demoTrash[k] = demo[k]; delete demo[k]; }
     demoFolders.delete(path);
+  },
+  async untrash(path) {
+    for (const k of Object.keys(demoTrash)) if (k === path || k.startsWith(path + "/")) { demo[k] = demoTrash[k]; delete demoTrash[k]; }
   },
   reveal: async () => {},
   pins: async () => demoPins.filter((p) => p in demo),

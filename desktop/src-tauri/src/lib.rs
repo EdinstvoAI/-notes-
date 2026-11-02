@@ -117,6 +117,11 @@ fn trash(path: String, state: State<AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn untrash(path: String, state: State<AppState>) -> Result<(), String> {
+    with_vault(&state, |v| platform::files::untrash(&v.resolve(&path).map_err(|e| e.to_string())?))
+}
+
+#[tauri::command]
 fn reveal(path: String, state: State<AppState>) -> Result<(), String> {
     with_vault(&state, |v| platform::files::reveal(&v.resolve(&path).map_err(|e| e.to_string())?).map_err(|e| e.to_string()))
 }
@@ -660,7 +665,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             open_vault, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
-            create_folder, duplicate, move_into, copy_in, trash, reveal, pins, set_pins,
+            create_folder, duplicate, move_into, copy_in, trash, untrash, reveal, pins, set_pins,
             templates, create_from_template, daily,
             set_due, set_done, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, selftest, selftest_slow, selftest_log, selftest_env,
             github_status, github_code, github_finish, github_cancel, github_sign_out, github_sync, open_github,

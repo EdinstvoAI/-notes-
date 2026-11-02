@@ -47,6 +47,8 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     await check("duplicate and move", moved === "итоги копия.md");
     await backend.trash(moved!);
     await check("trash", !(await backend.tree()).notes.some((n) => n.path === moved));
+    await backend.untrash(moved!);
+    await check("Ctrl+Z: back from trash", (await backend.tree()).notes.some((n) => n.path === moved));
     // Правки снаружи: файл появился в папке — панель узнаёт сама.
     await backend.write("снаружи.md", "из другого редактора\n");
     await pause(1500);
