@@ -39,3 +39,17 @@ fn bad_archive_is_rejected() {
     assert!(store.install_from_archive(Model::GigaAm, &fake).unwrap_err().contains("контрольная сумма"));
     assert!(!store.is_installed(Model::GigaAm));
 }
+
+#[test]
+fn speakers_on_real_models() {
+    let (Ok(seg), Ok(emb)) = (std::env::var("NOTES_TEST_SEG_ARCHIVE"), std::env::var("NOTES_TEST_EMB")) else { return };
+    let dir = tempfile::tempdir().unwrap();
+    let s = notes_speech::speakers::Speakers::new(dir.path());
+    s.install_from(std::path::Path::new(&seg), std::path::Path::new(&emb)).unwrap();
+    assert!(s.is_installed());
+    let wav = std::env::var("NOTES_TEST_WAV").unwrap();
+    let samples = notes_speech::media::decode(std::path::Path::new(&wav)).unwrap();
+    let turns = s.turns(&samples).unwrap();
+    println!("turns: {turns:?}");
+    assert!(!turns.is_empty());
+}

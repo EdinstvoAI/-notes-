@@ -5,6 +5,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { icon } from "./icons";
+import { showMenu } from "./menu";
 
 interface Item { id: string; title: string; source: string; added: string; duration: number; words: number | null; error?: string | null }
 interface Segment { start: number; end: number; text: string; speaker?: number }
@@ -67,7 +68,7 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
       const who = s.speaker !== undefined && s.speaker !== previous
         ? `<button class="speaker" data-speaker="${s.speaker}">${esc(t.names[s.speaker] ?? `спикер ${s.speaker + 1}`)}</button>` : "";
       previous = s.speaker ?? previous;
-      return `<div class="line">${who}<time>${clock(s.start)}</time><p>${esc(s.text)}</p></div>`;
+      return `<div class="line" data-line="${t.segments.indexOf(s)}">${who}<time>${clock(s.start)}</time><p>${esc(s.text)}</p></div>`;
     }).join("");
     root.innerHTML = `<div class="video">
       <h1>${esc(item.title)}</h1>
@@ -121,6 +122,19 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
       input.addEventListener("keydown", (k) => { if (k.key === "Enter") input.blur(); });
       input.addEventListener("blur", done, { once: true });
     }
+  });
+  // Правый клик по реплике — другой спикер или новый (как на маке, если распознало не того).
+  root.addEventListener("contextmenu", async (e) => {
+    const line = (e.target as HTMLElement).closest<HTMLElement>("[data-line]");
+    const item = items.find((i) => i.id === open);
+    if (!line || !item) return;
+    e.preventDefault();
+    const t = await invoke<Transcript | null>("video_get", { id: item.id });
+    if (!t) return;
+    const known = [...new Set(t.segments.map((s) => s.speaker).filter((s): s is number => s !== undefined))].sort();
+    const next = known.length ? Math.max(...known) + 1 : 0;
+    const mark = (speaker: number) => async () => { await invoke("video_mark", { id: item.id, index: Number(line.dataset.line), speaker }); await render(); };
+    showMenu(e.clientX, e.clientY, [...known.map((s) => ({ label: t.names[s] ?? `спикер ${s + 1}`, run: mark(s) })), { label: "новый спикер", run: mark(next) }]);
   });
   sidebar.addEventListener("click", (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>("[data-vid]");

@@ -4,6 +4,7 @@
 
 pub mod media;
 pub mod models;
+pub mod speakers;
 pub mod transcript;
 
 use std::ops::Range;

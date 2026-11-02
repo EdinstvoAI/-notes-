@@ -56,6 +56,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   type ModelInfo = { id: string; installed: boolean; download_mb: number };
   let models: ModelInfo[] = host.backend.inTauri ? await invoke<ModelInfo[]>("models") : [];
   let downloading: number | null = null;
+  let speakers = host.backend.inTauri ? await invoke<boolean>("speakers_installed") : false;
   let meaning = host.backend.inTauri ? await invoke<boolean>("meaning_installed") : false;
   let lock: LockState | null = host.backend.inTauri ? await lockApi.state() : null;
   let gh = await host.backend.githubStatus();
@@ -106,6 +107,8 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
           : gigaam?.installed ? `${granted("скачана")}${pill("model-remove", "удалить")}` : pill("model-get", `скачать ${gigaam?.download_mb ?? 176} мб`);
         return row("горячая клавиша", `${hotkey} — нажать, сказать, нажать ещё раз: текст в буфере`, `<span class="device-code">${hotkey}</span>`)
           + row("gigaam", "русский с пунктуацией, распознаёт на этом компьютере", status)
+          + row("спикеры", "кто что сказал в расшифровке видео · 35 мб", !host.backend.inTauri ? later("в браузере нет")
+            : speakers ? granted("скачаны") : pill("speakers-get", "скачать"))
           + row("whisper", "99 языков", later())
           + row("вставлять в поле", "в поле, где курсор", later())
           + note("модели не входят в приложение: качаются один раз и проверяются по контрольной сумме");
@@ -202,6 +205,13 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       stop();
       downloading = null;
       meaning = await invoke<boolean>("meaning_installed");
+      render();
+    } else if (b.dataset.set === "speakers-get") {
+      b.textContent = "качаем…";
+      try { await invoke("speakers_download"); } catch (error) {
+        root.querySelector(".settings-rows")?.insertAdjacentHTML("beforeend", note(`не скачалось: ${esc(String(error))}`));
+      }
+      speakers = await invoke<boolean>("speakers_installed");
       render();
     } else if (b.dataset.set === "model-remove") {
       await invoke("model_remove");

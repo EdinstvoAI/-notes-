@@ -570,6 +570,34 @@ fn video_rename_speaker(id: String, speaker: usize, name: String, app: tauri::Ap
     video::put(&app, &id, &t)
 }
 
+/// Реплика `index` — другому спикеру (или новому: `speaker` = следующий номер).
+#[tauri::command]
+fn video_mark(id: String, index: usize, speaker: usize, app: tauri::AppHandle) -> Result<(), String> {
+    let mut t = video::get(&app, &id).ok_or("нет расшифровки")?;
+    t.mark(index, speaker);
+    video::put(&app, &id, &t)
+}
+
+#[tauri::command]
+fn speakers_installed(app: tauri::AppHandle) -> bool {
+    notes_speech::speakers::Speakers::new(&dictation::store(&app).root).is_installed()
+}
+
+#[tauri::command]
+async fn speakers_download(app: tauri::AppHandle) -> Result<(), String> {
+    let s = notes_speech::speakers::Speakers::new(&dictation::store(&app).root);
+    tauri::async_runtime::spawn_blocking(move || s.download()).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn selftest_install_speakers(segmentation: String, embedding: String, app: tauri::AppHandle) -> Result<(), String> {
+    if !selftest() {
+        return Err("only in self-test".into());
+    }
+    notes_speech::speakers::Speakers::new(&dictation::store(&app).root)
+        .install_from(std::path::Path::new(&segmentation), std::path::Path::new(&embedding))
+}
+
 #[tauri::command]
 fn video_delete(id: String, app: tauri::AppHandle) {
     video::delete(&app, &id);
@@ -636,7 +664,8 @@ pub fn run() {
             lock_state, lock_seen, lock_needed_on_return, pin_set, pin_clear, pin_check, hello_verify,
             dictation_toggle, models, model_download, model_remove, dictation_test,
             meaning_installed, meaning_download, meaning_search, selftest_install_e5,
-            video_list, video_add, video_get, video_rename_speaker, video_delete, video_save_note, video_srt
+            video_list, video_add, video_get, video_rename_speaker, video_delete, video_save_note, video_srt,
+            video_mark, speakers_installed, speakers_download, selftest_install_speakers
         ])
         .run(tauri::generate_context!())
         .expect("error while running <notes>");

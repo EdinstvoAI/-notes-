@@ -83,7 +83,15 @@ pub fn add(app: AppHandle, path: String, added: String) -> Result<Item, String> 
                 return Err("модель не скачана: настройки → надиктовка".into());
             }
             let model = GigaAm::load(&store.folder(Model::GigaAm))?;
-            Ok(Transcript { segments: model.segments(&samples), ..Default::default() })
+            let mut t = Transcript { segments: model.segments(&samples), ..Default::default() };
+            // Спикеры — если их модели скачаны (настройки → надиктовка), как на маке.
+            let speakers = notes_speech::speakers::Speakers::new(&store.root);
+            if speakers.is_installed() {
+                if let Ok(turns) = speakers.turns(&samples) {
+                    t.assign(&turns);
+                }
+            }
+            Ok(t)
         })();
         match result {
             Ok(t) => {
