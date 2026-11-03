@@ -45,6 +45,7 @@ cd NotesSpeech && NOTES_GIGAAM_DIR=<папка распакованной GigaAM
   Состояния экранов снимаем отладочными флагами (`-onboardingStep`, `-pinPreview`, `-dictationTestFile`,
   `-speakerPreview YES -notesSection video` — разговор двух голосов со спикерами, сам убирается через 40 с),
   а живые нажатия (хоткей, ввод с клавиатуры, Touch ID) просим проверить Макара и так и пишем.
+- Ширина окна для снимка: `-windowWidth 1000` (только DEBUG; окно помнит свой размер).
 - Язык: `-AppleLanguages '(en)'` или `'(sr-Latn)'`. Мимо экрана входа (если у Макара стоит пинкод):
   `-lock.lastSeenUnlocked "<date>$(date -u +%Y-%m-%dT%H:%M:%SZ)</date>"` — только для этого запуска,
   его настройки не меняются. `-testVault` принимает `YES`, не путь: с путём откроется его хранилище.
