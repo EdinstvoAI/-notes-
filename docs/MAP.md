@@ -71,6 +71,7 @@
 - `NotesCore/Tests/NotesCoreTests/GitHistoryTests.swift` — тесты истории: порядок, отмена, откат, конфликт.
 - `NotesCore/Sources/NotesCore/PasswordSafe.swift` — сейф паролей: шифр AES-GCM с ключом из мастер-пароля (PBKDF2), TOTP по RFC 6238, генератор паролей.
 - `NotesCore/Tests/NotesCoreTests/PasswordSafeTests.swift` — тесты сейфа: чужой пароль, порча файла, векторы TOTP.
+- `<notes>/Safe/MenuBarPanel.swift` — значок в строке меню: сейф под рукой (найти, скопировать пароль или код), открыть окно, надиктовать.
 - `<notes>/Safe/SafeScreen.swift` — раздел «пароли»: вход мастер-паролем, пароли, коды 2FA, секреты; буфер стирается через минуту.
 - `NotesCore/Sources/NotesCore/MCPServer.swift` — локальный MCP-сервер для нейронок: поиск, чтение, новые заметки и задачи, только внутри хранилища.
 - `NotesCore/Sources/notes-mcp/main.swift` — исполняемый `notes-mcp --vault <папка>`: stdio-обёртка над MCPServer.

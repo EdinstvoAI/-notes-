@@ -3975,6 +3975,22 @@
         }
       }
     },
+    "найти пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "find a password"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nađi lozinku"
+          }
+        }
+      }
+    },
     "настроить": {
       "localizations": {
         "en": {
@@ -4643,6 +4659,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "otvori"
+          }
+        }
+      }
+    },
+    "открыть <notes>": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "open <notes>"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "otvori <notes>"
           }
         }
       }
@@ -5955,6 +5987,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "sef se otvara glavnom lozinkom koju znaš samo ti"
+          }
+        }
+      }
+    },
+    "сейфа ещё нет — создай его в разделе «пароли»": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no safe yet — create it in the Passwords section"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sefa još nema — napravi ga u odeljku „lozinke“"
           }
         }
       }

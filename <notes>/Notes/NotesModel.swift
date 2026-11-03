@@ -47,7 +47,7 @@ import SwiftUI
     let tasks: TasksModel
     let video: VideoModel
     let history = SyncHistory()
-    let safe = SafeModel()
+    let safe = SafeModel.shared
 
     enum SettingsPage: String, CaseIterable {
         case general = "общие", sync = "синхронизация", dictation = "надиктовка", search = "поиск", lock = "вход", calendar = "календарь"

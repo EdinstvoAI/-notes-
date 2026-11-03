@@ -6,6 +6,8 @@ import SwiftUI
 // Мастер-пароль живёт только в памяти, пока сейф открыт; копия в буфере стирается через минуту.
 @MainActor @Observable
 final class SafeModel {
+    // Один сейф на приложение: его открывают и окно, и значок в строке меню.
+    static let shared = SafeModel()
     private(set) var items: [SafeItem] = []
     private var password: String?
     var kind: SafeItem.Kind = .login

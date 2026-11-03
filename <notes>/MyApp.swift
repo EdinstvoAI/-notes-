@@ -95,6 +95,13 @@ struct MyApp: App {
                     .keyboardShortcut("]")
             }
         }
+        // Значок в строке меню (03.11.2026, «сверху иконка notes… быстро открыть менеджер паролей»).
+        MenuBarExtra {
+            MenuBarPanel(vault: onboarding.vaultURL)
+        } label: {
+            Image(nsImage: MenuBarPanel.icon)
+        }
+        .menuBarExtraStyle(.window)
     }
 }
 
