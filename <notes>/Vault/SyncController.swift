@@ -126,7 +126,7 @@ final class SyncController {
     // Чтение токена может ждать окна macOS «разрешить доступ к Связке ключей» — не на главном потоке,
     // иначе всё приложение замирает, пока окно не закрыли.
     private static func token() async -> String? {
-        await Task.detached { TokenStore().load() }.value
+        await Task.detached { await GitHubSession.token(clientID: GitHubApp.clientID) }.value
     }
 
     // Без входа в GitHub забирать неоткуда — пропускаем.

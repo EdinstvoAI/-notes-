@@ -30,6 +30,8 @@ public struct SafeItem: Codable, Identifiable, Equatable, Sendable {
 
 public enum PasswordSafe {
     public static let file = ".safe/safe.enc"
+    // Коды 2FA — отдельным файлом и своим ключом (03.11.2026, «изолировать»): утёк один ключ — второй файл цел.
+    public static let codesFile = ".safe/codes.enc"
     static let iterations: UInt32 = 600_000
     static let magic = Data("NSAFE1".utf8)
 
@@ -54,19 +56,19 @@ public enum PasswordSafe {
         return try JSONDecoder().decode([SafeItem].self, from: json)
     }
 
-    public static func load(vault: URL, password: String) throws -> [SafeItem]? {
+    public static func load(vault: URL, password: String, file: String = file) throws -> [SafeItem]? {
         let url = vault.appendingPathComponent(file)
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try open(data, password: password)
     }
 
-    public static func save(_ items: [SafeItem], vault: URL, password: String) throws {
+    public static func save(_ items: [SafeItem], vault: URL, password: String, file: String = file) throws {
         let url = vault.appendingPathComponent(file)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try seal(items, password: password).write(to: url, options: .atomic)
     }
 
-    public static func exists(vault: URL) -> Bool {
+    public static func exists(vault: URL, file: String = file) -> Bool {
         FileManager.default.fileExists(atPath: vault.appendingPathComponent(file).path)
     }
 
@@ -120,6 +122,13 @@ public enum PasswordSafe {
         }
         if !field.isEmpty || !row.isEmpty { row.append(field); rows.append(row) }
         return rows
+    }
+
+    // Слабый мастер-пароль не запрещаем, а предупреждаем: файл лежит на GitHub, его можно перебирать.
+    public static func isWeak(_ password: String) -> Bool {
+        let kinds = [password.contains(where: \.isLowercase), password.contains(where: \.isUppercase),
+                     password.contains(where: \.isNumber), password.contains(where: { !$0.isLetter && !$0.isNumber })]
+        return password.count < 12 || kinds.filter { $0 }.count < 3
     }
 
     // Новый пароль: 20 знаков без похожих (0/O, 1/l), с цифрами и знаками.

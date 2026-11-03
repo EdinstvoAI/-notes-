@@ -8,14 +8,15 @@ public struct MCPServer {
     public let library: NoteLibrary
     // «Только чтение» в разделе MCP: инструменты записи не видны и не работают.
     public let allowWrites: Bool
-    // Журнал обращений для раздела MCP: инструмент и путь или запрос, без текста заметок.
-    public let log: (@Sendable (String, String) -> Void)?
+    // Журнал обращений для раздела MCP: инструмент, путь или запрос и длина ответа (для оценки токенов),
+    // без текста заметок.
+    public let log: (@Sendable (String, String, Int) -> Void)?
 
     // Папки, закрытые для нейронок (раздел MCP): их заметок не видно ни в поиске, ни в списке, ни по пути.
     public let hiddenFolders: Set<String>
 
     public init(library: NoteLibrary, allowWrites: Bool = true, hiddenFolders: Set<String> = [],
-                log: (@Sendable (String, String) -> Void)? = nil) {
+                log: (@Sendable (String, String, Int) -> Void)? = nil) {
         self.library = library
         self.hiddenFolders = hiddenFolders
         self.allowWrites = allowWrites
@@ -63,9 +64,13 @@ public struct MCPServer {
         case "tools/call":
             let name = params["name"] as? String ?? ""
             let args = params["arguments"] as? [String: Any] ?? [:]
+            let target = (args["path"] ?? args["note"] ?? args["query"] ?? args["title"] ?? args["folder"] ?? "") as? String ?? ""
             do {
-                reply["result"] = ["content": [["type": "text", "text": try call(name, args)]]]
+                let text = try call(name, args)
+                log?(name, target, text.count)
+                reply["result"] = ["content": [["type": "text", "text": text]]]
             } catch {
+                log?(name, target, 0)
                 reply["result"] = ["content": [["type": "text", "text": "\(error)"]], "isError": true]
             }
         default:
@@ -80,7 +85,6 @@ public struct MCPServer {
     }
 
     func call(_ name: String, _ args: [String: Any]) throws -> String {
-        log?(name, (args["path"] ?? args["note"] ?? args["query"] ?? args["title"] ?? args["folder"] ?? "") as? String ?? "")
         if Self.writeTools.contains(name) && !allowWrites { throw Failure("запись выключена: включено «только чтение»") }
         switch name {
         case "search_notes":

@@ -28,8 +28,9 @@ final class GitHubLogin {
             let code = try await flow.requestCode()
             state = .waiting(code: code.userCode, verification: code.verificationURI)
 
-            let token = try await flow.waitForToken(code)
-            try TokenStore().save(token)
+            let grant = try await flow.waitForGrant(code)
+            try GitHubSession.save(grant)
+            let token = grant.token
             state = .connecting
 
             let repo = try await GitHubRepositories(token: token).ensureNotes()

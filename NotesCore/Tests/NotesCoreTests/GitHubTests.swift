@@ -40,6 +40,19 @@ struct GitHubDeviceFlowTests {
         #expect(http.requests.first?.value(forHTTPHeaderField: "Accept") == "application/json")
     }
 
+    @Test("истекающий токен приходит с ключом продления, продление даёт новый")
+    func refreshesExpiringToken() async throws {
+        let http = StubHTTP([(200, #"{"access_token":"ghu_1","expires_in":28800,"refresh_token":"ghr_1"}"#),
+                             (200, #"{"access_token":"ghu_2","expires_in":28800,"refresh_token":"ghr_2"}"#)])
+        let flow = GitHubDeviceFlow(clientID: "id", http: http, sleep: { _ in })
+        let grant = try await flow.waitForGrant(code)
+        #expect(grant.refresh == "ghr_1" && grant.expires != nil)
+        let next = try await flow.refresh("ghr_1")
+        #expect(next.token == "ghu_2" && next.refresh == "ghr_2")
+        let body = String(decoding: http.requests[1].httpBody ?? Data(), as: UTF8.self)
+        #expect(body.contains("grant_type=refresh_token") && body.contains("refresh_token=ghr_1"))
+    }
+
     @Test("ждём, пока подтвердят, и получаем токен")
     func waitsForApproval() async throws {
         let http = StubHTTP([(200, #"{"error":"authorization_pending"}"#),

@@ -6,7 +6,8 @@ import SwiftUI
 // и поиск поверх (79:12603). Окно 1200×760, все координаты — из кадров.
 enum NotesLayout {
     static let window = CGSize(width: 1200, height: 760)
-    static let minWidth: CGFloat = 820
+    // 870, а не 820 (03.11.2026): восемь разделов значками и кнопка синхронизации справа на 820 не влезали.
+    static let minWidth: CGFloat = 870
     static let header: CGFloat = 92
     static let gray = Color(red: 134 / 255, green: 134 / 255, blue: 139 / 255)
     static let line = Color(light: Color(red: 227 / 255, green: 227 / 255, blue: 232 / 255), dark: .white.opacity(0.1))

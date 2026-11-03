@@ -11,15 +11,26 @@ final class SafeModel {
     // Один сейф на приложение: его открывают и окно, и значок в строке меню.
     static let shared = SafeModel()
     private(set) var items: [SafeItem] = []
-    private var password: String?
+    private var keys: SafeKeys?
     var kind: SafeItem.Kind = .login
     var open: UUID?
     var error: String?
-    var unlocked: Bool { password != nil }
-    // Автозакрытие: 5 минут без дела, сон Mac или блокировка экрана — сейф закрывается, пароль из памяти уходит.
-    // -safeIdle 5 — для проверки автозакрытия без ожидания.
-    static let idle: TimeInterval = UserDefaults.standard.double(forKey: "safeIdle") > 0 ? UserDefaults.standard.double(forKey: "safeIdle") : 300
+    var unlocked: Bool { keys != nil }
     private var lastUse = Date()
+
+    // Автозакрытие (03.11.2026, «настройка: минута, 30 секунд, произвольно или никогда»): без дела дольше
+    // выбранного, сон Mac или блокировка экрана — сейф закрывается, ключи уходят из памяти. 0 — никогда.
+    static let lockChoices: [Int] = [30, 60, 300, 900, 3600, 0]
+    var lockAfter: Int = UserDefaults.standard.object(forKey: "safeLockSeconds") as? Int ?? 300 {
+        didSet { UserDefaults.standard.set(lockAfter, forKey: "safeLockSeconds") }
+    }
+    private var idle: TimeInterval {
+        #if DEBUG
+        // -safeIdle 2 — проверка автозакрытия без ожидания; только в отладочной сборке.
+        if UserDefaults.standard.double(forKey: "safeIdle") > 0 { return UserDefaults.standard.double(forKey: "safeIdle") }
+        #endif
+        return TimeInterval(lockAfter)
+    }
 
     init() {
         let center = NSWorkspace.shared.notificationCenter
@@ -31,65 +42,93 @@ final class SafeModel {
         }
         Task { [weak self] in
             while true {
-                try? await Task.sleep(for: .seconds(min(30, Self.idle)))
+                try? await Task.sleep(for: .seconds(2))
                 guard let self else { return }
-                if self.unlocked, Date().timeIntervalSince(self.lastUse) > Self.idle { self.lock() }
+                if self.unlocked, self.idle > 0, Date().timeIntervalSince(self.lastUse) > self.idle { self.lock() }
             }
         }
     }
 
     func touch() { lastUse = Date() }
 
-    func unlock(_ vault: URL, _ text: String) {
+    // Открыть ключами: пароли и секреты — в safe.enc, коды 2FA — в codes.enc своим ключом.
+    // Старый сейф с кодами внутри safe.enc при первом сохранении раскладывается на два файла.
+    @discardableResult
+    private func openFiles(_ vault: URL, _ keys: SafeKeys) -> Bool {
         do {
-            items = try PasswordSafe.load(vault: vault, password: text) ?? []
-            if !PasswordSafe.exists(vault: vault) { try PasswordSafe.save([], vault: vault, password: text) }
-            password = text
+            let main = try PasswordSafe.load(vault: vault, password: keys.safe) ?? []
+            let codes = try PasswordSafe.load(vault: vault, password: keys.codes, file: PasswordSafe.codesFile) ?? []
+            items = main + codes
+            self.keys = keys
             error = nil
             touch()
-            if !remembered(vault).exists, !UserDefaults.standard.bool(forKey: "testVault") { try? remembered(vault).save(text) }
+            if !PasswordSafe.exists(vault: vault) || !PasswordSafe.exists(vault: vault, file: PasswordSafe.codesFile)
+                || main.contains(where: { $0.kind == .totp }) { save(vault) }
+            return true
         } catch {
-            self.error = String(localized: "пароль не подошёл")
+            return false
         }
     }
 
-    // Touch ID или пароль Mac (03.11.2026, «зачем мне мастер-пароль»): мастер-пароль вводится один раз на
-    // каждом Mac и ложится в Связку ключей; дальше сейф открывает система. На другом Mac файл тот же —
-    // там мастер-пароль спросят один раз, поэтому он остаётся.
-    private func remembered(_ vault: URL) -> TokenStore { TokenStore(service: "notes.safe", account: vault.path) }
+    // Ключ или мастер-пароль, введённый руками (новый Mac или свой пароль). После — запоминаем под Touch ID.
+    func unlock(_ vault: URL, _ text: String) {
+        guard let keys = SafeKeys.from(text).first(where: { openFiles(vault, $0) }) else {
+            error = String(localized: "ключ не подошёл"); return
+        }
+        remember(keys, vault)
+    }
 
-    func canUseTouchID(_ vault: URL) -> Bool { PasswordSafe.exists(vault: vault) && remembered(vault).exists }
+    private func remember(_ keys: SafeKeys, _ vault: URL) {
+        guard !UserDefaults.standard.bool(forKey: "testVault"), !SafeKeys.stored(vault) else { return }
+        do { try SafeKeys.store(keys, vault: vault) } catch {
+            self.error = String(localized: "этот mac не умеет touch id — ключ придётся вводить каждый раз")
+        }
+    }
+
+    func canUseTouchID(_ vault: URL) -> Bool { PasswordSafe.exists(vault: vault) && SafeKeys.stored(vault) }
 
     func unlockWithTouchID(_ vault: URL) {
-        let context = LAContext()
-        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: String(localized: "открыть сейф паролей")) { ok, _ in
-            Task { @MainActor in
-                guard ok, let text = self.remembered(vault).load() else { return }
-                self.unlock(vault, text)
+        Task {
+            do {
+                let keys = try await SafeKeys.load(vault, reason: String(localized: "открыть сейф паролей"))
+                if !openFiles(vault, keys) { error = String(localized: "ключ на этом mac устарел — введи ключ сейфа"); SafeKeys.forget(vault) }
+            } catch {
+                // Отмена Touch ID — не ошибка, просто остаёмся на экране входа.
             }
         }
     }
 
-    // Сейф без мастер-пароля: ключ сначала в Связку ключей, и только если он там — создаём файл.
-    // Иначе ключ потерялся бы вместе с сейфом.
+    // Новый сейф без мастер-пароля: два случайных ключа. Сначала — под Touch ID, и только потом файлы,
+    // иначе ключи потерялись бы вместе с сейфом.
     func create(_ vault: URL) {
-        let key = PasswordSafe.generate(length: 32)
-        let testing = UserDefaults.standard.bool(forKey: "testVault")
-        guard testing || (try? remembered(vault).save(key)) != nil else {
-            error = String(localized: "связка ключей не приняла ключ — придумай свой мастер-пароль"); return
+        let keys = SafeKeys(safe: PasswordSafe.generate(length: 32), codes: PasswordSafe.generate(length: 32))
+        if !UserDefaults.standard.bool(forKey: "testVault") {
+            do { try SafeKeys.store(keys, vault: vault) } catch {
+                self.error = String(localized: "этот mac не умеет touch id — придумай свой мастер-пароль"); return
+            }
         }
-        unlock(vault, key)
+        openFiles(vault, keys)
     }
 
-    // Ключ (мастер-пароль) — в буфер, чтобы ввести на другом Mac; через минуту стирается.
-    func copyKey() { if let password { Self.copy(password) } }
+    // Свой мастер-пароль — один для обоих файлов.
+    func create(_ vault: URL, password: String) {
+        let keys = SafeKeys(safe: password, codes: password)
+        openFiles(vault, keys)
+        remember(keys, vault)
+    }
 
-    func lock() { password = nil; items = []; open = nil }
+    // Ключи — в буфер, чтобы ввести на другом Mac; через минуту стираются.
+    func copyKey() { if let keys { Self.copy(keys.transfer) } }
+
+    func lock() { keys = nil; items = []; open = nil }
 
     func save(_ vault: URL) {
-        guard let password else { return }
+        guard let keys else { return }
         touch()
-        do { try PasswordSafe.save(items, vault: vault, password: password) } catch { self.error = error.localizedDescription }
+        do {
+            try PasswordSafe.save(items.filter { $0.kind != .totp }, vault: vault, password: keys.safe)
+            try PasswordSafe.save(items.filter { $0.kind == .totp }, vault: vault, password: keys.codes, file: PasswordSafe.codesFile)
+        } catch { self.error = error.localizedDescription }
     }
 
     func add(_ vault: URL) {
@@ -130,8 +169,12 @@ final class SafeModel {
     static func copy(_ text: String) {
         shared.touch()
         let board = NSPasteboard.general
-        board.clearContents()
+        // Только этот Mac: без общего буфера с iPhone. Пометки «скрытое» и «временное» — менеджеры истории
+        // буфера такое не сохраняют.
+        board.prepareForNewContents(with: .currentHostOnly)
         board.setString(text, forType: .string)
+        board.setData(Data(), forType: .init("org.nspasteboard.ConcealedType"))
+        board.setData(Data(), forType: .init("org.nspasteboard.TransientType"))
         let count = board.changeCount
         Task {
             try? await Task.sleep(for: .seconds(60))
@@ -262,11 +305,16 @@ struct SafeScreen: View {
                 .font(Martian.body.font(12)).foregroundStyle(Theme.coral).padding(.top, 6)
         }
         if let error = safe.error { Text(error).font(Martian.body.font(12)).foregroundStyle(Theme.coral).padding(.top, 6) }
+        if creating && !entry.isEmpty && PasswordSafe.isWeak(entry) {
+            Text("пароль слабый: если файл утечёт с github, его можно подобрать. лучше 12+ знаков, буквы, цифры и символы")
+                .font(Martian.body.font(12)).foregroundStyle(NotesLayout.gray).padding(.top, 6)
+        }
         Button(creating ? "создать сейф" : "открыть") {
-            withAnimation(.smooth) { safe.unlock(vault, entry) }; entry = ""; repeatEntry = ""
+            withAnimation(.smooth) { if creating { safe.create(vault, password: entry) } else { safe.unlock(vault, entry) } }
+            entry = ""; repeatEntry = ""
         }
         .buttonStyle(CoralCapsuleStyle())
-        .disabled(entry.count < 8 || (creating && entry != repeatEntry))
+        .disabled(entry.isEmpty || (creating && entry != repeatEntry))
         .padding(.top, 14)
     }
 
@@ -296,6 +344,16 @@ struct SafeScreen: View {
                     change: { safe.update($0, vault) }, delete: { withAnimation(.smooth) { safe.delete(item.id, vault) } })
                 .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
         }
+        SettingRow(title: "закрывать сам", subtitle: safe.lockAfter == 0
+                   ? String(localized: "никогда — опасно: открытый сейф увидит любой, кто сел за mac")
+                   : String(localized: "без дела \(Self.lockTitle(safe.lockAfter)), а ещё при сне и блокировке экрана")) {
+            Menu(Self.lockTitle(safe.lockAfter)) {
+                ForEach(SafeModel.lockChoices, id: \.self) { seconds in Button(Self.lockTitle(seconds)) { safe.lockAfter = seconds } }
+            }
+            .menuStyle(.button).buttonStyle(WhitePillStyle()).fixedSize()
+        }
+        .frame(width: min(640, pageWidth))
+        .padding(.top, 24)
     }
 
     // Перенос из «Паролей» по шагам (03.11.2026, «не пойму, как добавить из паролей»): у Apple нет API,
@@ -322,9 +380,18 @@ struct SafeScreen: View {
             .padding(.top, 4)
         }
         .padding(16)
-        .frame(width: 640, alignment: .leading)
+        .frame(width: min(640, pageWidth), alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 14).fill(Theme.fg.opacity(0.04)))
         .padding(.bottom, 12)
+    }
+
+    static func lockTitle(_ seconds: Int) -> String {
+        switch seconds {
+        case 0: String(localized: "никогда")
+        case ..<60: String(localized: "\(seconds) сек")
+        case ..<3600: String(localized: "\(seconds / 60) мин")
+        default: String(localized: "\(seconds / 3600) ч")
+        }
     }
 
     static let steps = [
@@ -338,6 +405,7 @@ struct SafeScreen: View {
 // Новая запись — формой, а не пустой «без названия» (03.11.2026, «странное название, ввести не могу»).
 // Код 2FA: можно вставить ссылку otpauth:// — название и аккаунт возьмём из неё.
 private struct AddForm: View {
+    @Environment(\.pageWidth) private var pageWidth
     let kind: SafeItem.Kind
     let done: (SafeItem?) -> Void
     @State private var item: SafeItem
@@ -384,7 +452,7 @@ private struct AddForm: View {
             .padding(.top, 4)
         }
         .padding(16)
-        .frame(width: 640, alignment: .leading)
+        .frame(width: min(640, pageWidth), alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 14).fill(Theme.fg.opacity(0.04)))
         .padding(.bottom, 12)
         .onAppear { focused = kind == .totp ? 0 : 1 }
@@ -424,6 +492,7 @@ struct OutlinePillStyle: ButtonStyle {
 }
 
 private struct SafeRow: View {
+    @Environment(\.pageWidth) private var pageWidth
     let item: SafeItem
     let expanded: Bool
     let toggle: () -> Void
@@ -480,7 +549,7 @@ private struct SafeRow: View {
             }
         }
         .padding(14)
-        .frame(width: 640, alignment: .leading)
+        .frame(width: min(640, pageWidth), alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 14).fill(Theme.fg.opacity(0.04)))
         .onChange(of: expanded, initial: true) { draft = expanded ? item : nil; shown = false }
     }

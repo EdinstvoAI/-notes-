@@ -13,8 +13,8 @@ import SwiftUI
         }
         let log = MCPLog.url
         MCPServer(library: NoteLibrary(root: vault), allowWrites: !MCPLog.readOnly,
-                  hiddenFolders: MCPLog.hiddenFolders) { tool, target in
-            MCPLog.append(tool, target, to: log)
+                  hiddenFolders: MCPLog.hiddenFolders) { tool, target, chars in
+            MCPLog.append(tool, target, chars: chars, to: log)
         }.run()
     }
 }

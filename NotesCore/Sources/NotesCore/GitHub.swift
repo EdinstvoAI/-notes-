@@ -59,7 +59,17 @@ public struct GitHubDeviceFlow: Sendable {
 
     // Ждёт подтверждения на GitHub и возвращает токен. Отмена задачи (ушли с экрана) прекращает
     // опрос — device_code нигде не сохраняется, поэтому код, введённый позже, никому не даст токен.
-    public func waitForToken(_ code: Code) async throws -> String {
+    public func waitForToken(_ code: Code) async throws -> String { try await waitForGrant(code).token }
+
+    // Токен и, если в приложении GitHub включено истечение токенов, ключ продления. Без продления GitHub
+    // выкидывал раз в сутки (03.11.2026, «он раз в сутки меня выкидывает»).
+    public struct Grant: Equatable, Sendable {
+        public let token: String
+        public let refresh: String?
+        public let expires: Date?
+    }
+
+    public func waitForGrant(_ code: Code) async throws -> Grant {
         var interval = code.interval
         while true {
             try await sleep(.seconds(interval))
@@ -70,7 +80,7 @@ public struct GitHubDeviceFlow: Sendable {
                 "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
             ])
             let reply = try JSONDecoder().decode(TokenReply.self, from: data)
-            if let token = reply.accessToken { return token }
+            if let grant = reply.grant { return grant }
             switch reply.error {
             case "authorization_pending": continue
             // GitHub просит опрашивать реже: прибавляем 5 секунд, как сказано в его документации.
@@ -82,13 +92,29 @@ public struct GitHubDeviceFlow: Sendable {
         }
     }
 
+    // Продлить токен ключом продления; новый ключ продления приходит вместе с токеном.
+    public func refresh(_ refreshToken: String) async throws -> Grant {
+        let data = try await post("https://github.com/login/oauth/access_token", [
+            "client_id": clientID, "grant_type": "refresh_token", "refresh_token": refreshToken,
+        ])
+        let reply = try JSONDecoder().decode(TokenReply.self, from: data)
+        guard let grant = reply.grant else { throw GitHubError.unexpected(reply.error ?? "пустой ответ") }
+        return grant
+    }
+
     private struct TokenReply: Decodable {
         let accessToken: String?
+        let refreshToken: String?
+        let expiresIn: Int?
         let error: String?
         let interval: Int?
 
+        var grant: Grant? {
+            accessToken.map { Grant(token: $0, refresh: refreshToken, expires: expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) }) }
+        }
+
         enum CodingKeys: String, CodingKey {
-            case accessToken = "access_token", error, interval
+            case accessToken = "access_token", refreshToken = "refresh_token", expiresIn = "expires_in", error, interval
         }
     }
 
@@ -105,6 +131,27 @@ public struct GitHubDeviceFlow: Sendable {
             throw GitHubError.unexpected("github ответил \(response.statusCode)")
         }
         return data
+    }
+}
+
+// Вход в GitHub между запусками: токен и ключ продления — в Связке ключей, срок — в настройках.
+// Токен истекает через 5 минут или раньше — продлеваем заранее; без ключа продления токен вечный.
+public enum GitHubSession {
+    static let expiresKey = "githubTokenExpires"
+
+    public static func save(_ grant: GitHubDeviceFlow.Grant) throws {
+        try TokenStore().save(grant.token)
+        if let refresh = grant.refresh { try TokenStore(account: "refresh").save(refresh) }
+        UserDefaults.standard.set(grant.expires, forKey: expiresKey)
+    }
+
+    public static func token(clientID: String?, now: Date = Date()) async -> String? {
+        guard let token = TokenStore().load() else { return nil }
+        guard let expires = UserDefaults.standard.object(forKey: expiresKey) as? Date, expires < now.addingTimeInterval(300),
+              let clientID, let refresh = TokenStore(account: "refresh").load(),
+              let grant = try? await GitHubDeviceFlow(clientID: clientID).refresh(refresh) else { return token }
+        try? save(grant)
+        return grant.token
     }
 }
 

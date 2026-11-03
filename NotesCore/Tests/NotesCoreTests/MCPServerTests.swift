@@ -66,7 +66,7 @@ struct MCPServerTests {
         final class Box: @unchecked Sendable { var lines: [String] = [] }
         let box = Box()
         let base = try server()
-        let s = MCPServer(library: base.library, allowWrites: false) { box.lines.append("\($0) \($1)") }
+        let s = MCPServer(library: base.library, allowWrites: false) { tool, target, _ in box.lines.append("\(tool) \(target)") }
         #expect(!s.handle(#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#)!.contains("create_note"))
         #expect(call(s, "create_note", ["title": "x", "text": "тайна"]).1)
         #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("x.md").path))

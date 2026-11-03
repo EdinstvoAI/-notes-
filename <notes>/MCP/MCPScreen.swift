@@ -90,8 +90,9 @@ nonisolated enum MCPLog {
         """.write(to: folder.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
     }
 
-    static func append(_ tool: String, _ target: String, to url: URL) {
-        let line = "\(Int(Date().timeIntervalSince1970))\t\(tool)\t\(target.replacingOccurrences(of: "\n", with: " "))\n"
+    // Строка журнала: время, инструмент, длина ответа в знаках, путь или запрос.
+    static func append(_ tool: String, _ target: String, chars: Int, to url: URL) {
+        let line = "\(Int(Date().timeIntervalSince1970))\t\(tool)\t\(chars)\t\(target.replacingOccurrences(of: "\n", with: " "))\n"
         if let handle = try? FileHandle(forWritingTo: url) {
             handle.seekToEndOfFile(); handle.write(Data(line.utf8)); try? handle.close()
         } else {
@@ -102,13 +103,26 @@ nonisolated enum MCPLog {
 
     // Последние обращения, свежие сверху.
     static func recent(_ limit: Int = 50) -> [(date: Date, tool: String, target: String)] {
+        entries().suffix(limit).reversed().map { ($0.date, $0.tool, $0.target) }
+    }
+
+    // Старые строки без длины (до 03.11.2026) читаются с нулём.
+    static func entries() -> [(date: Date, tool: String, chars: Int, target: String)] {
         let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-        return text.split(separator: "\n").suffix(limit).reversed().compactMap { line in
-            let parts = line.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
-            guard parts.count == 3, let time = TimeInterval(parts[0]) else { return nil }
-            return (Date(timeIntervalSince1970: time), parts[1], parts[2])
+        return text.split(separator: "\n").compactMap { line in
+            let parts = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            guard parts.count >= 3, let time = TimeInterval(parts[0]) else { return nil }
+            if parts.count >= 4, let chars = Int(parts[2]) {
+                return (Date(timeIntervalSince1970: time), parts[1], chars, parts[3...].joined(separator: "\t"))
+            }
+            return (Date(timeIntervalSince1970: time), parts[1], 0, parts[2...].joined(separator: "\t"))
         }
     }
+
+    // Примерно, сколько токенов ушло нейросети: знаков ответа / 3 (русский текст плотнее английского).
+    static func tokens() -> Int { entries().reduce(0) { $0 + $1.chars } / 3 }
+
+    static func clear() { try? FileManager.default.removeItem(at: url) }
 }
 
 extension MCPScreen {
@@ -140,6 +154,7 @@ struct MCPScreen: View {
     @State private var agent = MCPLog.Agent.claude
     @State private var hidden = MCPLog.hiddenFolders
     @State private var recent = MCPLog.recent()
+    @State private var tokens = MCPLog.tokens()
 
     var body: some View {
         ScrollView {
@@ -169,6 +184,7 @@ struct MCPScreen: View {
             // Журнал пишет другой процесс (сам сервер) — перечитываем, пока раздел открыт.
             while !Task.isCancelled {
                 recent = MCPLog.recent()
+                tokens = MCPLog.tokens()
                 try? await Task.sleep(for: .seconds(3))
             }
         }
@@ -202,9 +218,15 @@ struct MCPScreen: View {
         }
         SwitchRow(title: "только чтение", subtitle: "нейросеть ищет и читает, но не создаёт заметки и задачи",
                   isOn: $readOnly) { MCPLog.readOnly = $0; readOnly = $0 }
-        Text("последние обращения")
-            .font(Martian.body.font(13)).foregroundStyle(Theme.ink)
-            .padding(.top, 32).padding(.bottom, 8)
+        HStack {
+            Text("последние обращения").font(Martian.body.font(13)).foregroundStyle(Theme.ink)
+            Text("≈ \(tokens.formatted()) токенов отдано нейросети").font(Martian.body.font(12)).foregroundStyle(NotesLayout.gray)
+            Spacer()
+            if !recent.isEmpty {
+                Button("очистить") { MCPLog.clear(); recent = []; tokens = 0 }.buttonStyle(QuietLinkStyle(size: 12, opacity: 0.6))
+            }
+        }
+        .padding(.top, 32).padding(.bottom, 8)
         if recent.isEmpty {
             Text("пока не было").font(Martian.body.font(12)).foregroundStyle(NotesLayout.gray)
         }
