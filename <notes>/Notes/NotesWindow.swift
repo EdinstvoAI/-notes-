@@ -340,7 +340,8 @@ private struct TopBar: View {
         let compact = fit == .icons || (fit == .hybrid && !active)
         return Button {
             model.flush()
-            model.section = target
+            // Всё вместе и плавно: подсветка в шапке едет, панель и лист проявляются (03.11.2026, «плавно»).
+            withAnimation(.smooth(duration: 0.45)) { model.section = target }
         } label: {
             HStack(spacing: 8) {
                 DotIcon(glyph: glyph)
@@ -423,6 +424,7 @@ private struct FolderRows: View {
             }
             if model.expanded.contains(child.url) {
                 FolderRows(model: model, folder: child, depth: depth + 1)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         ForEach(folder.notes) { note in
@@ -520,6 +522,12 @@ struct SectionContent: View {
             .id(contentID)
             .transition(.blurReplace)
             .padding(.top, 51)
+            // Текст при прокрутке не обрезается по линейке, а растворяется под капсулой пути.
+            .mask(VStack(spacing: 0) {
+                Color.clear.frame(height: 51)
+                LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: 28)
+                Color.black
+            })
 
 
             if model.section == .notes, !model.tabs.isEmpty {
@@ -572,6 +580,10 @@ struct SectionContent: View {
         switch model.section {
         case .notes: "notes-\(model.selection)"
         case .video: "video-\(model.video.open?.uuidString ?? "")"
+        // Страницы внутри раздела тоже сменяются плавно, а не рывком.
+        case .settings: "settings-\(model.settingsPage)"
+        case .mcp: "mcp-\(model.mcpSkills)"
+        case .safe: "safe-\(model.safe.unlocked)-\(model.safe.kind)"
         default: "\(model.section)"
         }
     }

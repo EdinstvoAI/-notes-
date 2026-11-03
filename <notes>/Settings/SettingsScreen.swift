@@ -46,13 +46,13 @@ struct SettingsScreen: View {
 
     private func subtitle(_ page: NotesModel.SettingsPage) -> String {
         switch page {
-        case .general: String(localized: "вид, запуск и текст заметок")
-        case .sync: String(localized: "где лежат заметки и куда уходят")
-        case .dictation: String(localized: "текст сразу в буфере")
+        case .general: String(localized: "как выглядит и запускается")
+        case .sync: String(localized: "хранилище, история и github")
+        case .dictation: String(localized: "говоришь — текст появляется там, где курсор")
         case .search: "заметки, задачи, события, видео"
         case .lock: String(localized: "пинкод и touch id")
         case .calendar: String(localized: "задачи со сроком попадают в календарь")
-        case .templates: String(localized: "шаблоны заметок и автоматизация")
+        case .templates: String(localized: "шаблоны и заметка на каждый день")
         }
     }
 }
@@ -115,7 +115,7 @@ private struct SyncPage: View {
             }
             .buttonStyle(WhitePillStyle())
         }
-        SettingRow(title: "история в git", subtitle: "версии сохраняются по расписанию") {
+        SettingRow(title: "история в git", subtitle: "каждая правка остаётся в истории") {
             if isRepo {
                 GrantedLabel(text: "включено")
             } else {
@@ -129,7 +129,7 @@ private struct SyncPage: View {
                 .buttonStyle(WhitePillStyle())
             }
         }
-        SettingRow(title: "github", subtitle: TokenStore().exists ? String(localized: "приватный репозиторий notes") : String(localized: "вход по коду при первом входе")) {
+        SettingRow(title: "github", subtitle: TokenStore().exists ? String(localized: "приватный репозиторий notes") : String(localized: "войди — заметки будут и на github")) {
             if TokenStore().exists && !sync.needsLogin {
                 GrantedLabel(text: "подключено")
             } else {
@@ -184,16 +184,16 @@ private struct DictationPage: View {
 
     var body: some View {
         HotKeyRow(width: 640)
-        ChoiceRow(title: "язык речи", subtitle: "для whisper",
+        ChoiceRow(title: "язык речи", subtitle: "на каком языке говоришь",
                   value: AppSettings.languages.first { $0.code == language }?.title ?? language,
                   choices: AppSettings.languages.map { ($0.code, $0.title) }) {
             AppSettings.language = $0; language = $0
         }
         SwitchRow(title: "вставлять в поле", subtitle: AutoPaste.enabled && !AutoPaste.trusted
-                    ? String(localized: "включи <notes> в «универсальном доступе»") : String(localized: "в поле, где курсор"), isOn: $paste) {
+                    ? String(localized: "разреши <notes>: настройки → конфиденциальность → универсальный доступ") : String(localized: "текст печатается сразу, копия остаётся в буфере"), isOn: $paste) {
             AutoPaste.enabled = $0; paste = $0
         }
-        ChoiceRow(title: "длина записи", subtitle: "потом распознается сама",
+        ChoiceRow(title: "длина записи", subtitle: "дольше — запись остановится сама",
                   value: Self.length(minutes), choices: AppSettings.lengthChoices.map { ($0, Self.length($0)) }) {
             AppSettings.maxMinutes = $0; minutes = $0
         }
@@ -323,7 +323,7 @@ private struct LockPage: View {
         SettingRow(title: String(localized: "пинкод"), subtitle: pinSet ? String(localized: "4 цифры") : String(localized: "не задан")) {
             Button(pinSet ? "сменить" : "задать") { model.pinEntryShown = true }.buttonStyle(WhitePillStyle())
         }
-        SettingRow(title: "touch id", subtitle: "вход по пальцу") {
+        SettingRow(title: "touch id", subtitle: "открывать отпечатком") {
             if !BiometricLock.isAvailable {
                 Text("нет touch id").font(Martian.body.font(13)).foregroundStyle(Theme.fg.opacity(0.3))
             } else if touchID {
@@ -447,7 +447,7 @@ private struct ReloginSheet: View {
         VStack(spacing: 18) {
             Text("войти в github")
                 .font(Martian.heading.font(22)).foregroundStyle(Theme.ink)
-            Text("вход устарел, введи код на github заново")
+            Text("github просит войти ещё раз")
                 .font(Martian.body.font(13)).foregroundStyle(NotesLayout.gray)
             DeviceCodeCapsule(state: login.state, renew: { attempt += 1 })
                 .offset(y: -(207 - Layout.sheetTop))

@@ -133,7 +133,9 @@ import SwiftUI
     }
 
     func toggle(_ folder: URL) {
-        if expanded.contains(folder) { expanded.remove(folder) } else { expanded.insert(folder) }
+        withAnimation(.smooth(duration: 0.3)) {
+            if expanded.contains(folder) { expanded.remove(folder) } else { expanded.insert(folder) }
+        }
     }
 
     // «проекты / план приложения»; на корне — «все заметки».

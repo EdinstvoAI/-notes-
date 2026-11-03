@@ -85,10 +85,24 @@ final class SafeModel {
         }
     }
 
-    func canUseTouchID(_ vault: URL) -> Bool { PasswordSafe.exists(vault: vault) && SafeKeys.stored(vault) }
+    // Сейф прошлой беты (03.11.2026, до Secure Enclave): ключ лежал в Связке ключей. Первый вход Touch ID
+    // переносит его под ключ чипа и стирает из Связки — вводить ничего не надо.
+    private func legacy(_ vault: URL) -> TokenStore { TokenStore(service: "notes.safe", account: vault.path) }
+
+    func canUseTouchID(_ vault: URL) -> Bool {
+        PasswordSafe.exists(vault: vault) && (SafeKeys.stored(vault) || legacy(vault).exists)
+    }
 
     func unlockWithTouchID(_ vault: URL) {
         Task {
+            if !SafeKeys.stored(vault), legacy(vault).exists {
+                let context = LAContext()
+                guard (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: String(localized: "открыть сейф паролей"))) == true,
+                      let key = await (Task.detached { [vault] in TokenStore(service: "notes.safe", account: vault.path).load() }).value else { return }
+                let keys = SafeKeys(safe: key, codes: key)
+                if openFiles(vault, keys) { remember(keys, vault); if SafeKeys.stored(vault) { legacy(vault).delete() } }
+                return
+            }
             do {
                 let keys = try await SafeKeys.load(vault, reason: String(localized: "открыть сейф паролей"))
                 if !openFiles(vault, keys) { error = String(localized: "ключ на этом mac устарел — введи ключ сейфа"); SafeKeys.forget(vault) }
@@ -230,10 +244,10 @@ struct SafeScreen: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(LocalizedStringKey(safe.unlocked ? safe.kind.title : "пароли"))
                     .font(Martian.heading.font(26)).kerning(Theme.tracking(-7, size: 26)).foregroundStyle(Theme.ink)
-                Text(safe.unlocked ? "в зашифрованном файле .safe/safe.enc, на github — только шифром"
-                                   : safe.canUseTouchID(vault) ? "сейф открывается touch id или паролем mac"
-                                   : PasswordSafe.exists(vault: vault) ? "на новом mac — ключ сейфа один раз, дальше touch id или пароль mac"
-                                   : "ключ придумает mac и спрячет в связку ключей — открывать будешь touch id")
+                Text(safe.unlocked ? "зашифровано на этом mac — на github уходит только шифр"
+                                   : safe.canUseTouchID(vault) ? "открой touch id или паролем mac"
+                                   : PasswordSafe.exists(vault: vault) ? "сейф создан на другом mac — вставь его ключ, дальше хватит touch id"
+                                   : "пароли, коды 2fa и секреты под touch id. шифруются на этом mac")
                     .font(Martian.body.font(13)).kerning(Theme.tracking(-7, size: 13)).foregroundStyle(NotesLayout.gray)
                     .padding(.top, 1).padding(.bottom, 40)
                 Group {
