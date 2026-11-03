@@ -32,6 +32,9 @@
 4. Руками, если action не справился: `gh release create vX.Y.Z build/notes.dmg --title "<notes> X.Y.Z" --notes-file …` — текст из раздела
    CHANGELOG.
 
+**Бета — не в main** (03.11.2026, «это же бетка»): тег беты ставится на `Dev-macOS`, релиз — pre-release,
+`main` не трогаем. В `main` — только стабильные версии.
+
 Название релиза — **только имя и версия**: `<notes> 1.0.0`, без описания в названии. Описание —
 по-английски: раздел CHANGELOG и в конце блок «Install» про Gatekeeper (01.11.2026, [DECISIONS.md](DECISIONS.md)).
 
