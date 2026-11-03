@@ -56,6 +56,13 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     const daily = await backend.daily("2026-11-01", "09:00");
     await check("daily note", daily === "дневник/2026-11-01.md");
     await ui.openNote("Входящие.md");
+    // Просмотр файла: картинка из хранилища показывается в листе.
+    (ui.app.querySelector('.sidebar [data-folder="проекты"]') as HTMLElement | null)?.click();
+    await pause(600);
+    (ui.app.querySelector('.sidebar [data-file="проекты/иконка.png"]') as HTMLElement | null)?.click();
+    await pause(1500);
+    const img = ui.app.querySelector<HTMLImageElement>(".preview-body img");
+    await check("image preview", !!img && img.naturalWidth === 128);
     // Хоткей: своё сочетание регистрируется, без Ctrl/Alt/Win — нет.
     const okKey = await invoke("set_hotkey", { combo: "ctrl+alt+d" }).then(() => true).catch(() => false);
     const badKey = await invoke("set_hotkey", { combo: "d" }).then(() => true).catch(() => false);

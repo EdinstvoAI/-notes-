@@ -439,3 +439,12 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .coral-capsule:hover { transform: scale(1.03); }
 .onboarding .quiet { margin-top: 16px; font-size: 13px; }
 .device-code.big { margin-top: 40px; font-size: 28px; padding: 10px 22px; }
+
+/* ——— просмотр файла (FilePreview на маке) ——— */
+.row.file { opacity: .75; }
+.preview { padding: 36px 58px 40px; height: 100%; display: flex; flex-direction: column; }
+.preview h1 { font: 26px "Martian Heading"; letter-spacing: var(--track); font-weight: normal; overflow-wrap: anywhere; }
+.preview-body { margin-top: 20px; flex: 1; min-height: 0; }
+.preview-body img, .preview-body video { max-width: 100%; max-height: 100%; border-radius: 12px; }
+.preview-body iframe { width: 100%; height: 100%; min-height: 480px; border: 0; border-radius: 12px; background: #fff; }
+.preview-body pre { white-space: pre-wrap; user-select: text; font: 13px/1.5 ui-monospace, monospace; }

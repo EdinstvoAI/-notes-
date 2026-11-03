@@ -16,7 +16,7 @@ import { addFiles, mountVideo } from "./video";
 import type { Prefs } from "./api";
 
 type Section = "notes" | "tasks" | "calendar" | "video" | "settings";
-type Selection = { kind: "folder"; path: string } | { kind: "note"; path: string };
+type Selection = { kind: "folder"; path: string } | { kind: "note"; path: string } | { kind: "file"; path: string };
 
 const SECTIONS: { id: Section; title: string; glyph: Glyph }[] = [
   { id: "notes", title: "заметки", glyph: "notes" },
@@ -124,6 +124,11 @@ function rows(folder: Folder, depth: number): string {
     html += `<button class="row${selected ? " selected" : ""}" style="padding-left:${pad}px" data-folder="${esc(f.path)}">
       ${icon("folder")}<span>${esc(f.name)}</span></button>`;
     if (state.expanded.has(f.path)) html += rows(f, depth + 1);
+  }
+  for (const f of folder.files) {
+    const selected = state.selection.kind === "file" && state.selection.path === f.path;
+    html += `<button class="row file${selected ? " selected" : ""}" style="padding-left:${pad}px" data-file="${esc(f.path)}">
+      ${icon("file")}<span>${esc(f.name)}</span></button>`;
   }
   for (const n of folder.notes) {
     const selected = state.selection.kind === "note" && state.selection.path === n.path;
@@ -240,6 +245,7 @@ function contentHTML(): string {
   }
   switch (state.section) {
     case "notes":
+      if (state.selection.kind === "file") return `<div class="preview-root" data-path="${esc(state.selection.path)}"></div>`;
       return state.selection.kind === "note" ? noteHTML(state.selection.path)
         : overviewHTML(findFolder(state.selection.path) ?? state.tree);
     case "tasks": return `<div class="tasks-root"></div>`;
@@ -252,7 +258,34 @@ function contentHTML(): string {
 // Смена раздела или заметки: старое уходит в размытие, новое из него проявляется — как на маке.
 let lastKey = "";
 let tasksScreen: { focusNew(): void } | null = null;
+// Просмотр файла из хранилища (как Quick Look на маке): картинки, PDF, видео и аудио — прямо в листе;
+// остальное (Word, Excel…) — «открыть в программе».
+async function mountPreview() {
+  const box = page.querySelector<HTMLElement>(".preview-root");
+  if (!box) return;
+  const path = box.dataset.path!;
+  const ext = path.split(".").pop()!.toLowerCase();
+  const name = esc(path.split("/").pop()!);
+  let media = "";
+  if (backend.inTauri) {
+    const { convertFileSrc, invoke } = await import("@tauri-apps/api/core");
+    const src = convertFileSrc(await invoke<string>("absolute", { path }));
+    if (["png", "jpg", "jpeg", "gif", "webp", "svg", "heic", "tiff"].includes(ext)) media = `<img src="${src}" alt="${name}">`;
+    else if (ext === "pdf") media = `<iframe src="${src}" title="${name}"></iframe>`;
+    else if (["mp4", "mov", "m4v"].includes(ext)) media = `<video src="${src}" controls></video>`;
+    else if (["mp3", "m4a", "wav", "aiff", "flac"].includes(ext)) media = `<audio src="${src}" controls></audio>`;
+    else if (["txt", "csv"].includes(ext)) media = `<pre>${esc(await backend.read(path).catch(() => ""))}</pre>`;
+  }
+  box.innerHTML = `<div class="preview"><h1>${name}</h1>
+    <div class="video-actions"><button class="pill" data-act="open-default">открыть в программе</button></div>
+    <div class="preview-body">${media || `<p class="video-sub">просмотра для этого файла нет</p>`}</div></div>`;
+  box.querySelector("[data-act=open-default]")?.addEventListener("click", async () => {
+    if (backend.inTauri) await (await import("@tauri-apps/api/core")).invoke("open_default", { path });
+  });
+}
+
 function mountSection() {
+  void mountPreview();
   const cal = page.querySelector<HTMLElement>(".cal-root");
   if (cal) mountCalendar(cal, { backend, openNote });
   const tasks = page.querySelector<HTMLElement>(".tasks-root");
@@ -390,6 +423,9 @@ app.addEventListener("click", async (e) => {
     if (el.classList.contains("row") && state.expanded.has(path) && state.selection.path === path) state.expanded.delete(path);
     else state.expanded.add(path);
     state.selection = { kind: "folder", path };
+    render();
+  } else if (el.dataset.file) {
+    state.selection = { kind: "file", path: el.dataset.file };
     render();
   } else if (el.dataset.note) {
     await openNote(el.dataset.note);

@@ -57,3 +57,14 @@ pub fn untrash(path: &Path) -> Result<(), String> {
         Err("на этой ОС вернуть из Корзины можно только руками".into())
     }
 }
+
+/// «Открыть в программе» — файл в программе по умолчанию (Word, Excel…), как на маке.
+pub fn open_default(path: &Path) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let r = Command::new("rundll32").arg("url.dll,FileProtocolHandler").arg(path).spawn();
+    #[cfg(target_os = "macos")]
+    let r = Command::new("open").arg(path).spawn();
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let r = Command::new("xdg-open").arg(path).spawn();
+    r.map(|_| ()).map_err(|e| e.to_string())
+}
