@@ -49,17 +49,38 @@ struct SyncSidebar: View {
         SidebarList(title: "синхронизация") {
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
-                    SyncGraph(history: history).padding(.bottom, 16)
+                    // Граф как схема метро (03.11.2026): линия истории, станция — версия, выбранная — коралловая.
+                    // Веток пока нет — одна линия; появятся — встанут рядом своими линиями.
                     ForEach(Array(history.commits.enumerated()), id: \.element.id) { index, commit in
+                        let last = index == history.commits.count - 1
                         if index == 0 || !Calendar.current.isDate(commit.date, inSameDayAs: history.commits[index - 1].date) {
-                            Text(commit.date.formatted(.dateTime.day().month(.wide).locale(.app)))
-                                .font(Martian.body.font(11))
-                                .foregroundStyle(NotesLayout.gray)
-                                .padding(.leading, 10).padding(.top, index == 0 ? 0 : 12).padding(.bottom, 4)
+                            HStack(spacing: 8) {
+                                MetroLine(top: index > 0, bottom: true, stop: nil)
+                                Text(commit.date.formatted(.dateTime.day().month(.wide).locale(.app)))
+                                    .font(Martian.body.font(11))
+                                    .foregroundStyle(NotesLayout.gray)
+                            }
+                            .frame(height: index == 0 ? 22 : 34, alignment: .bottom)
                         }
-                        SidebarRow(glyph: .git,
-                                   title: commit.date.formatted(.dateTime.hour().minute().locale(.app)) + "  " + commit.message,
-                                   selected: history.selected == commit.id) { history.selected = commit.id }
+                        Button { history.selected = commit.id } label: {
+                            HStack(spacing: 8) {
+                                MetroLine(top: true, bottom: !last, stop: history.selected == commit.id)
+                                Text(commit.date.formatted(.dateTime.hour().minute().locale(.app)))
+                                    .font(Martian.body.font(11))
+                                    .foregroundStyle(NotesLayout.gray)
+                                Text(commit.message)
+                                    .font(Martian.body.font(13))
+                                    .kerning(Theme.tracking(-7, size: 13))
+                                    .foregroundStyle(Theme.ink)
+                                    .lineLimit(1)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.trailing, 8)
+                            .frame(height: 28)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.fg.opacity(history.selected == commit.id ? 0.07 : 0)))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -206,36 +227,24 @@ struct SyncScreen: View {
     }
 }
 
-// Граф правок над датами: столбик — день за последние две недели, высота — сколько версий.
-// Клик — последняя версия дня; выбранный день коралловый.
-private struct SyncGraph: View {
-    let history: SyncHistory
+// Кусок линии метро у строки: отрезок сверху и снизу, посередине — станция (выбранная — крупнее, коралловая).
+private struct MetroLine: View {
+    let top: Bool
+    let bottom: Bool
+    let stop: Bool?
 
     var body: some View {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
-        let days = (0..<14).reversed().compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }
-        let counts = days.map { day in history.commits.filter { calendar.isDate($0.date, inSameDayAs: day) }.count }
-        let top = max(counts.max() ?? 1, 1)
-        let selected = history.commits.first { $0.id == history.selected }?.date
-        HStack(alignment: .bottom, spacing: 4) {
-            ForEach(Array(days.enumerated()), id: \.offset) { index, day in
-                let active = selected.map { calendar.isDate($0, inSameDayAs: day) } ?? false
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(active ? Theme.coral : Theme.ink.opacity(counts[index] == 0 ? 0.08 : 0.3))
-                    .frame(height: 4 + 44 * CGFloat(counts[index]) / CGFloat(top))
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if let commit = history.commits.first(where: { calendar.isDate($0.date, inSameDayAs: day) }) {
-                            history.selected = commit.id
-                        }
-                    }
-                    .help(day.formatted(.dateTime.day().month(.wide).locale(.app)) + " · \(counts[index])")
+        VStack(spacing: 0) {
+            Rectangle().fill(top ? Theme.ink.opacity(0.25) : .clear).frame(width: 2)
+            if let stop {
+                Circle()
+                    .fill(stop ? Theme.coral : Theme.bg)
+                    .overlay(Circle().strokeBorder(stop ? Theme.coral : Theme.ink.opacity(0.5), lineWidth: 2))
+                    .frame(width: stop ? 12 : 9, height: stop ? 12 : 9)
+                    .animation(.smooth(duration: 0.2), value: stop)
             }
+            Rectangle().fill(bottom ? Theme.ink.opacity(0.25) : .clear).frame(width: 2)
         }
-        .frame(height: 48, alignment: .bottom)
-        .padding(.horizontal, 10)
-        .animation(.smooth(duration: 0.25), value: history.selected)
+        .frame(width: 22)
     }
 }
