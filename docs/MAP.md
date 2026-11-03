@@ -21,6 +21,7 @@
 - `<notes>/Onboarding/Permissions.swift` — статусы и запросы доступа к микрофону и календарю.
 - `<notes>/Onboarding/PinEntrySheet.swift` — окно пинкода поверх шага, ячейки, клавиши.
 - `<notes>/Onboarding/UnlockStep.swift` — вход: пинкод, Touch ID, пауза после ошибок, «забыл пинкод».
+- `<notes>/Vault/SyncScreen.swift` — раздел «синхронизация»: версии из git по дням, файлы версии, отмена правок и откат ко всей версии.
 - `<notes>/Notes/NotesModel.swift` — состояние главного экрана: выбор, автосохранение, правки снаружи, поиск, самопроверка.
 - `<notes>/Notes/FilePreview.swift` — просмотр файлов хранилища (PDF, Word, фото, видео) встроенным Quick Look и «открыть в программе».
 - `<notes>/Notes/NoteTabs.swift` — вкладки открытых заметок над листом: открыть, закрыть, переход на соседнюю.
@@ -64,6 +65,8 @@
 - `NotesCore/Sources/NotesCore/NoteSections.swift` — разделы от Apple Intelligence в заметке: «## Кратко» и «## Задачи».
 - `NotesCore/Sources/NotesCore/NoteTasks.swift` — задачи из строк заметок: разбор, отметка, группы, план синхронизации с календарём.
 - `NotesCore/Sources/NotesCore/Transcript.swift` — расшифровка: куски с временем, .srt, заметка Markdown.
+- `NotesCore/Sources/NotesCore/GitVault+History.swift` — история коммитов с файлами, отмена одного коммита и откат к версии новым коммитом.
+- `NotesCore/Tests/NotesCoreTests/GitHistoryTests.swift` — тесты истории: порядок, отмена, откат, конфликт.
 - `NotesCore/Sources/NotesCore/MCPServer.swift` — локальный MCP-сервер для нейронок: поиск, чтение, новые заметки и задачи, только внутри хранилища.
 - `NotesCore/Sources/notes-mcp/main.swift` — исполняемый `notes-mcp --vault <папка>`: stdio-обёртка над MCPServer.
 - `NotesCore/Tests/NotesCoreTests/MCPServerTests.swift` — тесты MCP: рукопожатие, инструменты, выход за хранилище.
