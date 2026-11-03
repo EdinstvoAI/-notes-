@@ -293,6 +293,13 @@ fn selftest_env(name: String) -> Option<String> {
 #[tauri::command]
 fn selftest_log(line: String, done: bool, app: tauri::AppHandle) {
     println!("selftest: {line}");
+    // В релизной сборке Windows консоли нет — итог ещё и в файл (CI читает его).
+    if let Ok(path) = std::env::var("NOTES_SELFTEST_LOG") {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+            let _ = writeln!(f, "selftest: {line}");
+        }
+    }
     if done {
         app.exit(0);
     }
