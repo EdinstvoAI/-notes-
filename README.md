@@ -14,12 +14,14 @@ automatic version history, on-device dictation and tasks that live in your calen
 <p>
 <a href="https://github.com/EdinstvoAI/-notes-/releases/latest"><img src="https://img.shields.io/github/v/release/EdinstvoAI/-notes-?style=for-the-badge&labelColor=000000&color=1a1a1a&label=release" alt="Latest release"></a>
 <img src="https://img.shields.io/badge/macOS-27%2B-1a1a1a?style=for-the-badge&labelColor=000000&logo=apple&logoColor=white" alt="macOS 27+">
-<img src="https://img.shields.io/badge/Windows-in%20progress-1a1a1a?style=for-the-badge&labelColor=000000&logo=windows11&logoColor=white" alt="Windows in progress">
+<img src="https://img.shields.io/badge/Windows-beta-1a1a1a?style=for-the-badge&labelColor=000000&logo=windows11&logoColor=white" alt="Windows beta">
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-1a1a1a?style=for-the-badge&labelColor=000000" alt="MIT license"></a>
 </p>
 
 <p>
 <a href="https://github.com/EdinstvoAI/-notes-/releases/latest"><b>Download for macOS</b></a>
+&nbsp;·&nbsp;
+<a href="https://github.com/EdinstvoAI/-notes-/releases/tag/win-v1.0.0-beta"><b>Windows beta</b></a>
 &nbsp;·&nbsp;
 <a href="#features">Features</a>
 &nbsp;·&nbsp;
@@ -83,7 +85,7 @@ PIN code and Touch ID. Tokens and the PIN live in the Keychain, never in files.
 | Platform | Status |
 |---|---|
 | macOS 27+ | ✅ Available, [download](https://github.com/EdinstvoAI/-notes-/releases/latest) |
-| Windows | 🚧 In progress. Same vault format: one folder works on both |
+| Windows 10/11 | 🧪 Beta, [download](https://github.com/EdinstvoAI/-notes-/releases/tag/win-v1.0.0-beta). Same vault format: one folder works on both |
 
 ## Install
 
@@ -91,6 +93,15 @@ PIN code and Touch ID. Tokens and the PIN live in the Keychain, never in files.
 2. Open it and drag **`<notes>`** into **Applications**.
 3. This build is not notarized yet, so macOS asks once. Open
    **System Settings → Privacy & Security**, scroll down and click **Open Anyway**.
+
+### Windows beta
+
+1. Download **`<notes>_1.0.0-beta_x64-setup.exe`** from the [beta release](https://github.com/EdinstvoAI/-notes-/releases/tag/win-v1.0.0-beta).
+2. The installer is not signed yet. If SmartScreen stops it, click **More info → Run anyway**.
+3. Point it at the same folder you use on your Mac, or a new one.
+
+The beta covers notes, git sync, search (also by meaning), tasks, calendar, dictation, transcripts and
+Windows Hello. Apple Intelligence and Apple Calendar stay on macOS. Bugs → [issues](https://github.com/EdinstvoAI/-notes-/issues).
 
 ## How your vault looks
 
@@ -124,6 +135,13 @@ cd NotesCore && swift test       # core tests
 Scripts/make-dmg.sh              # installer → build/notes.dmg
 ```
 
+**Windows** (Tauri 2, Rust + TypeScript), on the `Dev-Windows` branch:
+
+```bash
+cd desktop && npm ci
+npx tauri build --bundles nsis   # installer → desktop/target/release/bundle/nsis
+```
+
 <details>
 <summary><b>Project layout</b></summary>
 
@@ -135,6 +153,7 @@ Scripts/make-dmg.sh              # installer → build/notes.dmg
 | `NotesCore/` | Notes, tasks, git sync, search, templates, with tests |
 | `NotesSpeech/` | On-device speech recognition and speaker detection |
 | `Scripts/` | Speech runtime download, DMG installer |
+| `desktop/` | Windows app on Tauri, in `Dev-Windows`; macOS moves here later |
 | `docs/` | Architecture, decisions, process |
 
 </details>
