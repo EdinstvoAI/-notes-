@@ -1,0 +1,28 @@
+# Бета для Windows: тег win-v* → сборка установщика на windows-latest → пре-релиз с .exe.
+# Только встроенный GITHUB_TOKEN, без секретов: репозиторий открытый.
+name: release-windows
+
+on:
+  push:
+    tags: ["win-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults: { run: { working-directory: desktop } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npx tauri build --bundles nsis
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: "<notes> v1.0.0 beta"
+          prerelease: true
+          body_path: desktop/RELEASE-BETA.md
+          files: desktop/target/release/bundle/nsis/*.exe
