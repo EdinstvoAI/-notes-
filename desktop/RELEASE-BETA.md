@@ -14,6 +14,6 @@ Plain Markdown files in a folder you own, git history, on-device dictation. It o
 ### Install
 **Windows 10/11, 64-bit:** run the `.exe` below. It is not signed yet: SmartScreen → **More info → Run anyway**.
 
-**macOS:** open the `.dmg` and drag <notes> to Applications. Not notarized yet: System Settings → Privacy & Security → **Open Anyway**. Touch ID, Apple Calendar and the menu bar icon are still in the Swift version only.
+**macOS:** open the `.dmg` and drag <notes> to Applications. Not notarized yet: System Settings → Privacy & Security → **Open Anyway**. If macOS still says the app is damaged, run `xattr -cr /Applications/<notes>.app` in Terminal. Touch ID, Apple Calendar and the menu bar icon are still in the Swift version only.
 
 This is a beta: please report what breaks.

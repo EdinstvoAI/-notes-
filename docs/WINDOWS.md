@@ -375,3 +375,6 @@ desktop/
   после `show()`. Сборка `sherpa-onnx-sys` в облаке не скачивает библиотеки (прокси, rustls не верит его
   сертификату): скачать `curl`'ом и указать `SHERPA_ONNX_ARCHIVE_DIR`. Модель для теста —
   `NOTES_TEST_GIGAAM_ARCHIVE` (тест ядра) и `NOTES_SELFTEST_GIGAAM` (самопроверка окна).
+
+- Грабли мака: неподписанный Tauri-dmg на Apple Silicon — «notes is damaged». Лечится ad-hoc подписью
+  `bundle.macOS.signingIdentity: "-"` (1.1.1-beta, 2026-11-03); до нотаризации — ещё «Всё равно открыть».
