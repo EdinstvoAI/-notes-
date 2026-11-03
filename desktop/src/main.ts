@@ -14,10 +14,11 @@ import { mountCalendar } from "./calendar";
 import { mountTasks } from "./tasks";
 import { mountSettings } from "./settings";
 import { addFiles, mountVideo, selectVideo } from "./video";
+import { mountSync } from "./sync";
 import { languageFor, setLanguage } from "./i18n";
 import type { Prefs } from "./api";
 
-type Section = "notes" | "tasks" | "calendar" | "video" | "settings";
+type Section = "notes" | "tasks" | "calendar" | "video" | "sync" | "settings";
 type Selection = { kind: "folder"; path: string } | { kind: "note"; path: string } | { kind: "file"; path: string };
 
 const SECTIONS: { id: Section; title: string; glyph: Glyph }[] = [
@@ -25,6 +26,8 @@ const SECTIONS: { id: Section; title: string; glyph: Glyph }[] = [
   { id: "tasks", title: "задачи", glyph: "taskDone" },
   { id: "calendar", title: "календарь", glyph: "calendar" },
   { id: "video", title: "видео", glyph: "video" },
+  // Синхронизация — своим разделом, статус в шапке не кликается (мак, 03.11.2026).
+  { id: "sync", title: "синхронизация", glyph: "git" },
   { id: "settings", title: "настройки", glyph: "settings" },
 ];
 
@@ -255,6 +258,7 @@ function contentHTML(): string {
     case "tasks": return `<div class="tasks-root"></div>`;
     case "calendar": return `<div class="cal-root"></div>`;
     case "video": return `<div class="video-root"></div>`;
+    case "sync": return `<div class="sync-root"></div>`;
     case "settings": return `<div class="settings-root"></div>`;
   }
 }
@@ -295,6 +299,12 @@ function mountSection() {
   const tasks = page.querySelector<HTMLElement>(".tasks-root");
   const video = page.querySelector<HTMLElement>(".video-root");
   if (video) void mountVideo(video, sidebar, { openNote, reload, onCrumb: (t) => (crumb.textContent = t), inTauri: backend.inTauri });
+  const sync = page.querySelector<HTMLElement>(".sync-root");
+  if (sync) void mountSync(sync, sidebar, { inTauri: backend.inTauri, error: () => syncError,
+    pushNow: async () => { syncError = null; await syncWithGithub(); void refreshSync(); },
+    hasRemote: async () => (await backend.githubStatus()).remote !== null,
+    lastPush: () => prefs.lastSync ?? null,
+    reload: async () => { await reload(); if (state.selection.kind === "note") state.text = await backend.read(state.selection.path).catch(() => ""); } });
   const settings = page.querySelector<HTMLElement>(".settings-root");
   if (settings) void mountSettings(settings, sidebar, { backend, onCrumb: (t) => (crumb.textContent = t), apply: applyPrefs,
     pickVault: async () => { const tree = await backend.pickVault(); if (tree) { state.tree = tree; state.tabs = []; state.selection = { kind: "folder", path: "" }; await reload(); } render(); },
@@ -494,11 +504,12 @@ const agoText = (seconds: number) => {
   return minutes < 1 ? "только что" : minutes < 60 ? `${minutes} мин назад` : `${Math.floor(minutes / 60)} ч назад`;
 };
 
-let syncError = false;
+/** Почему не отправилось — текстом; раньше причину не было видно нигде (мак, 03.11.2026). */
+let syncError: string | null = null;
 async function syncWithGithub() {
   try {
     const result = await backend.githubSync(now().date);
-    syncError = false;
+    syncError = null;
     applyPrefs({ ...prefs, lastSync: Date.now() });
     await backend.setPrefs(prefs);
     // Пришли правки с другого компьютера — перечитать дерево и открытую заметку.
@@ -512,8 +523,8 @@ async function syncWithGithub() {
       lastKey = "";
       render();
     }
-  } catch {
-    syncError = true;
+  } catch (e) {
+    syncError = String(e);
   }
 }
 
@@ -530,6 +541,7 @@ async function refreshSync() {
     if (gh.signed_in && gh.remote) {
       // С GitHub — как на маке: «синхронизировано N мин назад»; раз в час забираем и отправляем.
       if (!prefs.lastSync || Date.now() - prefs.lastSync > (prefs.pushMinutes ?? 60) * 60 * 1000) await syncWithGithub();
+      text.title = syncError ?? "";
       text.textContent = syncError ? "не отправилось" : prefs.lastSync ? `синхронизировано ${agoText(prefs.lastSync / 1000)}` : "синхронизируем…";
     } else {
       // Только локальная история — честно «сохранено».

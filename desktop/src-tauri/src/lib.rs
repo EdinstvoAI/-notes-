@@ -269,6 +269,37 @@ fn git_commit(state: State<AppState>) -> Result<Option<String>, String> {
     })
 }
 
+/// Раздел «синхронизация»: версии и откат (порт `SyncScreen.swift`, 03.11.2026). Откат — новым коммитом.
+fn with_history<T>(state: &State<AppState>, f: impl FnOnce(notes_core::git::History) -> Result<T, notes_core::git2::Error>) -> Result<T, String> {
+    with_vault(state, |v| notes_core::git::History::open(v.root()).and_then(f).map_err(|e| e.message().to_string()))
+}
+
+#[tauri::command]
+fn git_history(state: State<AppState>) -> Result<Vec<notes_core::git::Version>, String> {
+    with_history(&state, |h| h.history(100))
+}
+
+#[tauri::command]
+fn git_revert(id: String, state: State<AppState>) -> Result<(), String> {
+    with_history(&state, |h| h.revert(&id))
+}
+
+#[tauri::command]
+fn git_restore(id: String, stamp: String, state: State<AppState>) -> Result<(), String> {
+    with_history(&state, |h| h.restore(&id, &stamp))
+}
+
+/// Файл, каким был в версии; None — тогда его не было.
+#[tauri::command]
+fn git_file_at(path: String, id: String, state: State<AppState>) -> Result<Option<String>, String> {
+    with_history(&state, |h| h.file_at(&path, &id)).map(|b| b.map(|b| String::from_utf8_lossy(&b).into_owned()))
+}
+
+#[tauri::command]
+fn git_restore_file(path: String, id: String, state: State<AppState>) -> Result<(), String> {
+    with_history(&state, |h| h.restore_file(&path, &id))
+}
+
 /// Самопроверка в настоящем окне, как `-notesSelfTest` на маке: `NOTES_SELFTEST=1` — интерфейс сам
 /// проходит сценарий на открытом хранилище и пишет итог в вывод, потом приложение закрывается.
 #[tauri::command]
@@ -775,7 +806,7 @@ pub fn run() {
             open_vault, create_vault, create_vault_at, set_app_icon, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
             create_folder, duplicate, move_into, copy_in, trash, untrash, reveal, open_default, absolute, pins, set_pins,
             templates, create_from_template, daily,
-            set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, selftest, selftest_slow, selftest_log, selftest_env,
+            set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, git_history, git_revert, git_restore, git_file_at, git_restore_file, selftest, selftest_slow, selftest_log, selftest_env,
             github_status, github_code, github_finish, github_cancel, github_sign_out, github_sync, open_github,
             lock_state, lock_seen, lock_needed_on_return, pin_set, pin_clear, pin_check, hello_verify,
             dictation_toggle, models, model_download, model_remove, dictation_test,

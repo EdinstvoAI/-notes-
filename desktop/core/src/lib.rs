@@ -16,3 +16,4 @@ pub mod vault;
 pub use search::Hit;
 pub use tasks::{parse_task, Task};
 pub use vault::{Entry, Folder, Note, Vault, VaultError};
+pub use git2;

@@ -38,10 +38,29 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     await backend.gitEnable();
     let s = await backend.gitStatus();
     await check("git enabled with first commit", s.repo && s.commits === 1);
+    s = await backend.gitStatus();
     await backend.write(renamed, "# Из самопроверки\n\nправка\n");
     const message = await backend.gitCommit();
     s = await backend.gitStatus();
     await check(`commit «${message}»`, s.commits === 2 && message === "правка: итоги.md");
+    // Синхронизация: версия в панели линией метро, отмена версии — новым коммитом, файл уходит.
+    await backend.write("версия.md", "для отката\n");
+    await backend.gitCommit();
+    ui.app.querySelector<HTMLElement>('[data-section="sync"]')?.click();
+    await pause(900);
+    await check("sync section lists versions", ui.app.querySelectorAll(".metro-row").length >= 2 && !!ui.app.querySelector(".version-file"));
+    const top = await invoke<{ id: string }[]>("git_history");
+    await invoke("git_revert", { id: top[0].id });
+    await check("revert a version", !(await backend.tree()).notes.some((n) => n.path === "версия.md")
+      && (await invoke<{ message: string }[]>("git_history"))[0].message.startsWith("отменено:"));
+    ui.app.querySelector<HTMLElement>('[data-sync="board"]')?.click();
+    await pause(600);
+    ui.app.querySelector<HTMLElement>(".board-row")?.click();
+    await pause(400);
+    await check("graph board with card", !!ui.app.querySelector(".board-card .version-file"));
+    if (await invoke<string | null>("selftest_env", { name: "NOTES_SELFTEST_HOLD" })) await pause(4000);
+    ui.app.querySelector<HTMLElement>('[data-section="notes"]')?.click();
+    await pause(300);
     const dup = await backend.duplicate(renamed);
     const moved = await backend.moveInto(dup, "");
     await check("duplicate and move", moved === "итоги копия.md");

@@ -342,3 +342,116 @@ pub fn plural(n: usize, one: &'static str, few: &'static str, many: &'static str
         _ => many,
     }
 }
+
+/// Версия для раздела «синхронизация» (порт `GitVault+History.swift`, 03.11.2026). Откат — новый коммит
+/// поверх: история не переписывается, на GitHub уходит обычным push.
+#[derive(Debug, Clone, Serialize)]
+pub struct Version {
+    pub id: String,
+    pub message: String,
+    /// Секунды с 1970.
+    pub date: i64,
+    pub parents: Vec<String>,
+    pub files: Vec<Change>,
+}
+
+impl History {
+    /// Последние коммиты, свежие сверху, с файлами, которые в них поменялись.
+    pub fn history(&self, limit: usize) -> Result<Vec<Version>, git2::Error> {
+        let mut walk = self.repo.revwalk()?;
+        walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
+        if walk.push_head().is_err() {
+            return Ok(vec![]);
+        }
+        let mut out = vec![];
+        for oid in walk.take(limit) {
+            let c = self.repo.find_commit(oid?)?;
+            out.push(Version {
+                id: c.id().to_string(),
+                message: c.message().unwrap_or("").trim().to_string(),
+                date: c.time().seconds(),
+                parents: c.parent_ids().map(|p| p.to_string()).collect(),
+                files: self.files(&c)?,
+            });
+        }
+        Ok(out)
+    }
+
+    fn files(&self, c: &git2::Commit) -> Result<Vec<Change>, git2::Error> {
+        let parent = if c.parent_count() > 0 { Some(c.parent(0)?.tree()?) } else { None };
+        let diff = self.repo.diff_tree_to_tree(parent.as_ref(), Some(&c.tree()?), None)?;
+        Ok(diff.deltas().filter_map(|d| {
+            let (kind, file) = match d.status() {
+                git2::Delta::Added => (Kind::Added, d.new_file()),
+                git2::Delta::Deleted => (Kind::Deleted, d.old_file()),
+                _ => (Kind::Modified, d.new_file()),
+            };
+            file.path().map(|p| Change { path: p.to_string_lossy().replace('\\', "/"), kind })
+        }).collect())
+    }
+
+    /// Отменить одну версию: её правки уходят, всё, что после, остаётся. Ту же строку меняли позже —
+    /// конфликт: ничего не трогаем.
+    pub fn revert(&self, id: &str) -> Result<(), git2::Error> {
+        self.commit_all("перед откатом")?;
+        let c = self.repo.find_commit(git2::Oid::from_str(id)?)?;
+        let mut opts = git2::RevertOptions::new();
+        if c.parent_count() > 1 {
+            opts.mainline(1);
+        }
+        self.repo.revert(&c, Some(&mut opts))?;
+        let conflicted = self.repo.index()?.has_conflicts();
+        self.repo.cleanup_state()?;
+        if conflicted {
+            self.repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
+            self.repo.index()?.read(true)?;
+            return Err(git2::Error::from_str("эти правки потом меняли ещё раз — отменить отдельно нельзя, откати к версии"));
+        }
+        self.commit_all(&format!("отменено: {}", c.message().unwrap_or("").trim()))?;
+        Ok(())
+    }
+
+    /// Всё хранилище как в версии, новым коммитом сверху. Несохранённое — сначала в историю.
+    pub fn restore(&self, id: &str, stamp: &str) -> Result<(), git2::Error> {
+        self.commit_all("перед откатом")?;
+        let c = self.repo.find_commit(git2::Oid::from_str(id)?)?;
+        let target = c.tree()?;
+        let head = self.repo.head()?.peel_to_tree()?;
+        // Файлы, которых в версии не было, checkout_tree сам не удаляет — убираем по диффу.
+        let diff = self.repo.diff_tree_to_tree(Some(&head), Some(&target), None)?;
+        let root = self.repo.workdir().unwrap().to_path_buf();
+        self.repo.checkout_tree(target.as_object(), Some(CheckoutBuilder::new().force()))?;
+        for d in diff.deltas().filter(|d| d.status() == git2::Delta::Deleted) {
+            if let Some(p) = d.old_file().path() {
+                let _ = std::fs::remove_file(root.join(p));
+            }
+        }
+        self.commit_all(&format!("откат к версии от {stamp}"))?;
+        Ok(())
+    }
+
+    /// Файл, каким он был в версии, байт в байт (LF/CRLF как тогда). None — тогда его не было.
+    pub fn file_at(&self, path: &str, id: &str) -> Result<Option<Vec<u8>>, git2::Error> {
+        let tree = self.repo.find_commit(git2::Oid::from_str(id)?)?.tree()?;
+        let Ok(entry) = tree.get_path(Path::new(path)) else { return Ok(None) };
+        Ok(Some(self.repo.find_blob(entry.id())?.content().to_vec()))
+    }
+
+    /// Вернуть один файл как в версии; остальное не трогаем. Не было тогда — файл уходит.
+    pub fn restore_file(&self, path: &str, id: &str) -> Result<(), git2::Error> {
+        self.commit_all("перед откатом")?;
+        let file = self.repo.workdir().unwrap().join(path);
+        match self.file_at(path, id)? {
+            Some(bytes) => {
+                if let Some(dir) = file.parent() {
+                    std::fs::create_dir_all(dir).map_err(|e| git2::Error::from_str(&e.to_string()))?;
+                }
+                std::fs::write(&file, bytes).map_err(|e| git2::Error::from_str(&e.to_string()))?;
+            }
+            None => { let _ = std::fs::remove_file(&file); }
+        }
+        let name = Path::new(path).file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+        self.commit_all(&format!("возвращено: {name}"))?;
+        Ok(())
+    }
+}
