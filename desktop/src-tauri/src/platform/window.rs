@@ -6,6 +6,7 @@
 
 #[cfg(target_os = "macos")]
 pub fn apply_glass(window: &tauri::WebviewWindow) {
+    use tauri::Manager;
     use tauri_plugin_liquid_glass::{LiquidGlassConfig, LiquidGlassExt};
     let _ = window.app_handle().liquid_glass().set_effect(window, LiquidGlassConfig::default());
 }
