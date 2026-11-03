@@ -12,6 +12,7 @@ git2 = { version = "0.20", default-features = false, features = ["https"] }
 pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
 sha2 = "0.10"
 getrandom = "0.2"
+serde_json = "1"
 
 [dev-dependencies]
 tempfile = "3"

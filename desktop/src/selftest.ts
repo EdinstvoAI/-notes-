@@ -59,6 +59,14 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     await pause(400);
     await check("graph board with card", !!ui.app.querySelector(".board-card .version-file"));
     if (await invoke<string | null>("selftest_env", { name: "NOTES_SELFTEST_HOLD" })) await pause(4000);
+    // MCP: раздел, «только чтение» пишется в настройки — его прочтёт `--mcp`.
+    ui.app.querySelector<HTMLElement>('[data-section="mcp"]')?.click();
+    await pause(700);
+    ui.app.querySelector<HTMLElement>("[data-readonly]")?.click();
+    await pause(400);
+    await check("mcp section, read-only saved", !!ui.app.querySelector('[data-copy="connect"]') && JSON.parse(await invoke<string>("prefs")).mcpReadOnly === true);
+    if (await invoke<string | null>("selftest_env", { name: "NOTES_SELFTEST_HOLD" })) await pause(4000);
+    ui.app.querySelector<HTMLElement>("[data-readonly]")?.click();
     ui.app.querySelector<HTMLElement>('[data-section="notes"]')?.click();
     await pause(300);
     const dup = await backend.duplicate(renamed);

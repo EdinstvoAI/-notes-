@@ -15,10 +15,11 @@ import { mountTasks } from "./tasks";
 import { mountSettings } from "./settings";
 import { addFiles, mountVideo, selectVideo } from "./video";
 import { mountSync } from "./sync";
+import { mountMcp } from "./mcp";
 import { languageFor, setLanguage } from "./i18n";
 import type { Prefs } from "./api";
 
-type Section = "notes" | "tasks" | "calendar" | "video" | "sync" | "settings";
+type Section = "notes" | "tasks" | "calendar" | "video" | "sync" | "mcp" | "settings";
 type Selection = { kind: "folder"; path: string } | { kind: "note"; path: string } | { kind: "file"; path: string };
 
 const SECTIONS: { id: Section; title: string; glyph: Glyph }[] = [
@@ -28,6 +29,7 @@ const SECTIONS: { id: Section; title: string; glyph: Glyph }[] = [
   { id: "video", title: "видео", glyph: "video" },
   // Синхронизация — своим разделом, статус в шапке не кликается (мак, 03.11.2026).
   { id: "sync", title: "синхронизация", glyph: "git" },
+  { id: "mcp", title: "mcp", glyph: "spark" },
   { id: "settings", title: "настройки", glyph: "settings" },
 ];
 
@@ -259,6 +261,7 @@ function contentHTML(): string {
     case "calendar": return `<div class="cal-root"></div>`;
     case "video": return `<div class="video-root"></div>`;
     case "sync": return `<div class="sync-root"></div>`;
+    case "mcp": return `<div class="mcp-root"></div>`;
     case "settings": return `<div class="settings-root"></div>`;
   }
 }
@@ -305,6 +308,9 @@ function mountSection() {
     hasRemote: async () => (await backend.githubStatus()).remote !== null,
     lastPush: () => prefs.lastSync ?? null,
     reload: async () => { await reload(); if (state.selection.kind === "note") state.text = await backend.read(state.selection.path).catch(() => ""); } });
+  const mcp = page.querySelector<HTMLElement>(".mcp-root");
+  if (mcp) void mountMcp(mcp, sidebar, { inTauri: backend.inTauri, prefs: () => prefs,
+    setPrefs: async (p) => { applyPrefs(p); await backend.setPrefs(p); }, folders: () => (state.tree?.folders ?? []).map((f) => f.name) });
   const settings = page.querySelector<HTMLElement>(".settings-root");
   if (settings) void mountSettings(settings, sidebar, { backend, onCrumb: (t) => (crumb.textContent = t), apply: applyPrefs,
     pickVault: async () => { const tree = await backend.pickVault(); if (tree) { state.tree = tree; state.tabs = []; state.selection = { kind: "folder", path: "" }; await reload(); } render(); },

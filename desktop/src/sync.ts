@@ -49,7 +49,7 @@ export async function mountSync(root: HTMLElement, sidebar: HTMLElement, host: S
   const older = (id: string) => { const i = st.commits.findIndex((c) => c.id === id); return st.commits[i + 1]?.id ?? id; };
 
   function paintSidebar() {
-    let html = `<button class="row${st.board ? " selected" : ""}" style="padding-left:8px;margin-bottom:12px" data-sync="board">${icon("git")}<span>граф</span></button>`;
+    let html = `<button class="row${st.board ? " selected" : ""}" style="padding-left:8px;margin-bottom:12px" data-sync="board">${icon("spark")}<span>граф</span></button>`;
     st.commits.forEach((c, i) => {
       const last = i === st.commits.length - 1;
       if (i === 0 || day(c.date) !== day(st.commits[i - 1].date))

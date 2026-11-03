@@ -3118,6 +3118,7 @@ dependencies = [
  "git2",
  "pbkdf2 0.12.2",
  "serde",
+ "serde_json",
  "sha2 0.10.9",
  "tempfile",
  "unicode-normalization",

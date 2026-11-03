@@ -7,6 +7,7 @@
 pub mod git;
 pub mod ics;
 pub mod lock;
+pub mod mcp;
 pub mod names;
 pub mod search;
 pub mod tasks;

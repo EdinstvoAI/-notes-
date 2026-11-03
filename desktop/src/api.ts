@@ -39,6 +39,9 @@ export interface Prefs {
   pushMinutes?: number;
   /** Папки верхнего уровня, задачи из которых не идут в задачи и календарь (как «задачи из папок» на маке). */
   excludedFolders?: string[];
+  /** MCP: нейронки только читают; папки верхнего уровня, закрытые для них (раздел mcp). */
+  mcpReadOnly?: boolean;
+  mcpHiddenFolders?: string[];
 }
 
 export interface GithubStatus { signed_in: boolean; remote: string | null; unpushed: boolean }

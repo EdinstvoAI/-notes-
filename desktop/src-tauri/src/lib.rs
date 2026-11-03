@@ -1,6 +1,7 @@
 //! Оболочка Tauri: команды для интерфейса поверх `notes-core`. Здесь нет логики заметок —
 //! она в ядре, — и нет кода под ОС: он в `platform`.
 
+pub mod mcp;
 mod dictation;
 mod github;
 mod platform;
@@ -806,7 +807,7 @@ pub fn run() {
             open_vault, create_vault, create_vault_at, set_app_icon, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
             create_folder, duplicate, move_into, copy_in, trash, untrash, reveal, open_default, absolute, pins, set_pins,
             templates, create_from_template, daily,
-            set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, git_history, git_revert, git_restore, git_file_at, git_restore_file, selftest, selftest_slow, selftest_log, selftest_env,
+            set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, mcp::mcp_info, mcp::mcp_clear_log, mcp::mcp_skills, mcp::mcp_install_skill, git_history, git_revert, git_restore, git_file_at, git_restore_file, selftest, selftest_slow, selftest_log, selftest_env,
             github_status, github_code, github_finish, github_cancel, github_sign_out, github_sync, open_github,
             lock_state, lock_seen, lock_needed_on_return, pin_set, pin_clear, pin_check, hello_verify,
             dictation_toggle, models, model_download, model_remove, dictation_test,
