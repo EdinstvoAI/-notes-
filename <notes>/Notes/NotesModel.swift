@@ -48,6 +48,8 @@ import SwiftUI
     let video: VideoModel
     let history = SyncHistory()
     let safe = SafeModel.shared
+    // Раздел MCP: «подключение» или «скиллы».
+    var mcpSkills = false
 
     enum SettingsPage: String, CaseIterable {
         case general = "общие", sync = "синхронизация", dictation = "надиктовка", search = "поиск", lock = "вход", calendar = "календарь"

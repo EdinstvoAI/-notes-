@@ -1,4 +1,5 @@
 import AppKit
+import LocalAuthentication
 import NotesCore
 import SwiftUI
 import UniformTypeIdentifiers
@@ -46,8 +47,26 @@ final class SafeModel {
             password = text
             error = nil
             touch()
+            if !remembered(vault).exists, !UserDefaults.standard.bool(forKey: "testVault") { try? remembered(vault).save(text) }
         } catch {
             self.error = String(localized: "пароль не подошёл")
+        }
+    }
+
+    // Touch ID или пароль Mac (03.11.2026, «зачем мне мастер-пароль»): мастер-пароль вводится один раз на
+    // каждом Mac и ложится в Связку ключей; дальше сейф открывает система. На другом Mac файл тот же —
+    // там мастер-пароль спросят один раз, поэтому он остаётся.
+    private func remembered(_ vault: URL) -> TokenStore { TokenStore(service: "notes.safe", account: vault.path) }
+
+    func canUseTouchID(_ vault: URL) -> Bool { PasswordSafe.exists(vault: vault) && remembered(vault).exists }
+
+    func unlockWithTouchID(_ vault: URL) {
+        let context = LAContext()
+        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: String(localized: "открыть сейф паролей")) { ok, _ in
+            Task { @MainActor in
+                guard ok, let text = self.remembered(vault).load() else { return }
+                self.unlock(vault, text)
+            }
         }
     }
 
@@ -117,13 +136,14 @@ struct SafeSidebar: View {
 
     var body: some View {
         let safe = model.safe
+        // Закрытый сейф не показывает даже разделы — они появляются после входа.
         SidebarList(title: "пароли") {
-            ForEach(SafeItem.Kind.allCases, id: \.self) { kind in
-                SidebarRow(glyph: kind == .totp ? .check : kind == .secret ? .spark : .file, title: kind.title,
-                           count: safe.unlocked ? safe.items.filter { $0.kind == kind }.count : nil,
-                           selected: safe.kind == kind) { safe.kind = kind; safe.open = nil }
-            }
             if safe.unlocked {
+                ForEach(SafeItem.Kind.allCases, id: \.self) { kind in
+                    SidebarRow(glyph: kind == .totp ? .check : kind == .secret ? .spark : .key, title: kind.title,
+                               count: safe.items.filter { $0.kind == kind }.count,
+                               selected: safe.kind == kind) { safe.kind = kind; safe.open = nil }
+                }
                 SidebarRow(glyph: .settings, title: "закрыть сейф", selected: false) { safe.lock() }
                     .padding(.top, 12)
             }
@@ -145,7 +165,8 @@ struct SafeScreen: View {
                 Text(LocalizedStringKey(safe.unlocked ? safe.kind.title : "пароли"))
                     .font(Martian.heading.font(26)).kerning(Theme.tracking(-7, size: 26)).foregroundStyle(Theme.ink)
                 Text(safe.unlocked ? "в зашифрованном файле .safe/safe.enc, на github — только шифром"
-                                   : "сейф открывается мастер-паролем — его не знает никто, кроме тебя")
+                                   : safe.canUseTouchID(vault) ? "сейф открывается touch id или паролем mac"
+                                   : "мастер-пароль нужен один раз на этом mac — дальше touch id или пароль mac")
                     .font(Martian.body.font(13)).kerning(Theme.tracking(-7, size: 13)).foregroundStyle(NotesLayout.gray)
                     .padding(.top, 1).padding(.bottom, 40)
                 if safe.unlocked { items(safe, vault) } else { lockScreen(safe, vault) }
@@ -174,6 +195,16 @@ struct SafeScreen: View {
 
     @ViewBuilder private func lockScreen(_ safe: SafeModel, _ vault: URL) -> some View {
         let creating = !PasswordSafe.exists(vault: vault)
+        if safe.canUseTouchID(vault) {
+            Button("открыть по touch id") { safe.unlockWithTouchID(vault) }
+                .buttonStyle(WhitePillStyle())
+                .onAppear { safe.unlockWithTouchID(vault) }
+        } else {
+            masterPassword(safe, vault, creating)
+        }
+    }
+
+    @ViewBuilder private func masterPassword(_ safe: SafeModel, _ vault: URL, _ creating: Bool) -> some View {
         SecureField(creating ? "придумай мастер-пароль" : "мастер-пароль", text: $entry)
             .textFieldStyle(.plain).font(Martian.body.font(15))
             .padding(14).frame(width: 360)

@@ -155,7 +155,7 @@ private struct TopBar: View {
 
     // Разделы в шапке: все со словами → гибрид (значки, слово только у выбранного) → только значки.
     enum Fit { case full, hybrid, icons }
-    private static let titles = ["заметки", "задачи", "календарь", "видео", "синхронизация", "mcp", "пароли", "настройки"]
+    private static let titles = ["заметки", "задачи", "календарь", "видео", "пароли", "синхронизация", "mcp", "настройки"]
 
     var body: some View {
         GeometryReader { geo in
@@ -326,9 +326,9 @@ private struct TopBar: View {
             section("календарь", .calendar, .calendar, fit)
             section("видео", .video, .video, fit)
             // Синхронизация — своим разделом, а не кликом по статусу (03.11.2026, «статус не кликабельный»).
+            section("пароли", .key, .safe, fit)
             section("синхронизация", .git, .sync, fit)
             section("mcp", .spark, .mcp, fit)
-            section("пароли", .check, .safe, fit)
             section("настройки", .settings, .settings, fit)
         }
     }
@@ -584,7 +584,7 @@ struct SectionContent: View {
         case .settings: String(localized: "настройки / ") + model.settingsPage.rawValue.localized
         case .sync: String(localized: "синхронизация")
         case .mcp: "mcp"
-        case .safe: String(localized: "пароли") + " / " + model.safe.kind.title.localized
+        case .safe: model.safe.unlocked ? String(localized: "пароли") + " / " + model.safe.kind.title.localized : String(localized: "пароли")
         }
     }
 }

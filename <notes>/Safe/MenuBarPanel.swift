@@ -67,6 +67,8 @@ struct MenuBarPanel: View {
                     }
                     .frame(maxHeight: 320)
                     Button("закрыть сейф") { safe.lock() }.buttonStyle(QuietLinkStyle(size: 12, opacity: 0.6))
+                } else if safe.canUseTouchID(vault) {
+                    Button("открыть по touch id") { safe.unlockWithTouchID(vault) }.buttonStyle(WhitePillStyle())
                 } else if PasswordSafe.exists(vault: vault) {
                     SecureField("мастер-пароль", text: $entry)
                         .textFieldStyle(.plain).font(Martian.body.font(13))

@@ -29,34 +29,63 @@ nonisolated enum MCPLog {
         }
     }
 
-    // Готовые промты (03.11.2026, «выбор промта»): что нейронке делать с заметками.
-    static let prompts: [(title: String, text: String)] = [
-        ("помощник по заметкам", """
+    // Скиллы (03.11.2026, «скиллы отдельно, и их всякие разные»): готовые инструкции, что нейросети делать
+    // с заметками. Claude Code и Codex — файл SKILL.md в их папке скиллов, вне хранилища; Cursor — текстом.
+    struct Skill { let name, title, about, text: String }
+
+    static let skills: [Skill] = [
+        Skill(name: "notes-assistant", title: "помощник по заметкам", about: "отвечает, опираясь на заметки, и ссылается на них", text: """
         У тебя есть MCP-сервер notes — мои Markdown-заметки. Прежде чем отвечать, ищи в них (search_notes) \
         и читай найденное (read_note). Ссылайся на путь заметки. Новое записывай отдельной заметкой (create_note), \
         старые не переписывай.
         """),
-        ("разбор входящих", """
+        Skill(name: "notes-inbox", title: "разбор входящих", about: "раскладывает «Входящие» на задачи и заметки", text: """
         Прочитай «Входящие.md» через MCP notes. Разложи мысли: дела — задачами (add_task, со сроком, если он есть), \
         идеи — отдельными заметками в подходящие папки (create_note). В конце — короткий список, что куда ушло.
         """),
-        ("планировщик задач", """
+        Skill(name: "notes-planner", title: "планировщик задач", about: "собирает открытые задачи в план на день", text: """
         Через MCP notes возьми открытые задачи (list_tasks). Сгруппируй: сегодня, неделя, без срока. \
         Предложи план на день — три главных дела. Новые задачи добавляй через add_task в «Входящие.md».
         """),
+        Skill(name: "notes-weekly", title: "итоги недели", about: "что сделано и что осталось — отдельной заметкой", text: """
+        Через MCP notes посмотри заметки, изменённые за последние 7 дней (list_notes, свежие сверху), и задачи \
+        (list_tasks с include_done). Напиши итоги недели: что сделано, что осталось, что застряло. \
+        Сохрани новой заметкой «Итоги недели ГГГГ-ММ-ДД» (create_note).
+        """),
+        Skill(name: "notes-meeting", title: "конспект встречи", about: "из сырого текста — решения, задачи и заметка", text: """
+        Я даю сырой текст или расшифровку встречи. Выдели решения, открытые вопросы и задачи с ответственными и \
+        сроками. Сохрани конспект новой заметкой (create_note) в папку «Работа», задачи — через add_task в эту же заметку.
+        """),
+        Skill(name: "notes-links", title: "поиск связей", about: "находит заметки на ту же тему и предлагает связи", text: """
+        Возьми заметку, которую я назову (read_note). Найди через search_notes заметки на ту же тему по ключевым словам. \
+        Перечисли связанные с путями и одной строкой — чем они связаны. Сами заметки не меняй.
+        """),
     ]
 
-    // Скилл для Claude Code: ~/.claude/skills/notes/SKILL.md — по кнопке, вне хранилища.
-    static func installSkill(_ prompt: String) throws {
-        let folder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/skills/notes")
+    // Куда кладём скилл: у Claude Code и Codex своя папка скиллов в домашней папке.
+    static func skillFolder(_ agent: Agent, _ skill: Skill) -> URL? {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        switch agent {
+        case .claude: return home.appendingPathComponent(".claude/skills/\(skill.name)")
+        case .codex: return home.appendingPathComponent(".codex/skills/\(skill.name)")
+        case .cursor: return nil
+        }
+    }
+
+    static func installed(_ agent: Agent, _ skill: Skill) -> Bool {
+        skillFolder(agent, skill).map { FileManager.default.fileExists(atPath: $0.appendingPathComponent("SKILL.md").path) } ?? false
+    }
+
+    static func install(_ agent: Agent, _ skill: Skill) throws {
+        guard let folder = skillFolder(agent, skill) else { return }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try """
         ---
-        name: notes
-        description: Работа с моими заметками <notes> через MCP-сервер notes — поиск, чтение, новые заметки и задачи.
+        name: \(skill.name)
+        description: \(skill.title) — \(skill.about). Работает с заметками <notes> через MCP-сервер notes.
         ---
 
-        \(prompt)
+        \(skill.text)
 
         """.write(to: folder.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
     }
@@ -97,7 +126,8 @@ struct MCPSidebar: View {
     let model: NotesModel
     var body: some View {
         SidebarList(title: "mcp") {
-            SidebarRow(glyph: .spark, title: "подключение", selected: true) {}
+            SidebarRow(glyph: .spark, title: "подключение", selected: !model.mcpSkills) { model.mcpSkills = false }
+            SidebarRow(glyph: .file, title: "скиллы", count: MCPLog.skills.count, selected: model.mcpSkills) { model.mcpSkills = true }
         }
     }
 }
@@ -108,80 +138,24 @@ struct MCPScreen: View {
     @State private var readOnly = MCPLog.readOnly
     @State private var copied: String?
     @State private var agent = MCPLog.Agent.claude
-    @State private var prompt = 0
     @State private var hidden = MCPLog.hiddenFolders
     @State private var recent = MCPLog.recent()
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 5) {
-                Text("mcp")
+                Text(model.mcpSkills ? "скиллы" : "mcp")
                     .font(Martian.heading.font(26))
                     .kerning(Theme.tracking(-7, size: 26))
                     .foregroundStyle(Theme.ink)
-                Text("claude, codex и другие ищут и пишут заметки — на этом mac, без сети")
+                Text(model.mcpSkills ? "готовые инструкции для нейросети: что делать с заметками"
+                                     : "локальный сервер: claude code, codex и cursor работают с заметками на этом mac, без сети")
                     .font(Martian.body.font(13))
                     .kerning(Theme.tracking(-7, size: 13))
                     .foregroundStyle(NotesLayout.gray)
                     .padding(.top, 1).padding(.bottom, 40)
-                SettingRow(title: "нейронка", subtitle: agent.rawValue) {
-                    Menu("изменить") {
-                        ForEach(MCPLog.Agent.allCases, id: \.self) { item in Button(item.rawValue) { agent = item; copied = nil } }
-                    }
-                    .menuStyle(.button).buttonStyle(WhitePillStyle()).fixedSize()
-                }
-                SettingRow(title: "подключить", subtitle: agent == .cursor ? String(localized: "вставь в ~/.cursor/mcp.json")
-                                                                            : String(localized: "команда в терминал, один раз")) {
-                    copyButton("connect", MCPLog.connect(agent))
-                }
-                SettingRow(title: "промт", subtitle: MCPLog.prompts[prompt].title.localized) {
-                    HStack(spacing: 8) {
-                        Menu("изменить") {
-                            ForEach(MCPLog.prompts.indices, id: \.self) { i in Button(MCPLog.prompts[i].title.localized) { prompt = i; copied = nil } }
-                        }
-                        .menuStyle(.button).buttonStyle(WhitePillStyle()).fixedSize()
-                        if agent == .claude {
-                            Button(copied == "skill" ? "установлен" : "установить скилл") {
-                                copied = (try? MCPLog.installSkill(MCPLog.prompts[prompt].text)) != nil ? "skill" : nil
-                            }
-                            .buttonStyle(WhitePillStyle())
-                        } else {
-                            copyButton("prompt", MCPLog.prompts[prompt].text)
-                        }
-                    }
-                }
-                SettingRow(title: "закрытые папки", subtitle: hidden.isEmpty ? String(localized: "нет — видно всё хранилище")
-                                                                           : hidden.sorted().joined(separator: ", ")) {
-                    Menu("выбрать") {
-                        ForEach(model.tree.folders.map(\.name), id: \.self) { name in
-                            Toggle(name, isOn: Binding(get: { hidden.contains(name) }, set: { on in
-                                if on { hidden.insert(name) } else { hidden.remove(name) }
-                                MCPLog.hiddenFolders = hidden
-                            }))
-                        }
-                    }
-                    .menuStyle(.button).buttonStyle(WhitePillStyle()).fixedSize()
-                }
-                SwitchRow(title: "только чтение", subtitle: "нейронка ищет и читает, но не создаёт заметки и задачи",
-                          isOn: $readOnly) { MCPLog.readOnly = $0; readOnly = $0 }
-                SettingRow(title: "что доступно", subtitle: "только .md внутри хранилища: без .git, скрытых папок, ссылок наружу и закрытых папок") {
-                    EmptyView()
-                }
-                Text("последние обращения")
-                    .font(Martian.body.font(13)).foregroundStyle(Theme.ink)
-                    .padding(.top, 32).padding(.bottom, 8)
-                if recent.isEmpty {
-                    Text("пока не было").font(Martian.body.font(12)).foregroundStyle(NotesLayout.gray)
-                }
-                ForEach(Array(recent.enumerated()), id: \.offset) { _, item in
-                    HStack(spacing: 12) {
-                        Text(item.date.formatted(.dateTime.day().month(.abbreviated).hour().minute().locale(.app)))
-                            .foregroundStyle(NotesLayout.gray).frame(width: 110, alignment: .leading)
-                        Text(item.tool).foregroundStyle(Theme.ink).frame(width: 110, alignment: .leading)
-                        Text(item.target).foregroundStyle(Theme.ink.opacity(0.7)).lineLimit(1)
-                    }
-                    .font(Martian.body.font(12))
-                }
+                agentRow
+                if model.mcpSkills { skills } else { connection }
             }
             .frame(width: min(832, pageWidth), alignment: .leading)
             .padding(.leading, 58).padding(.top, 36).padding(.bottom, 40)
@@ -190,11 +164,73 @@ struct MCPScreen: View {
         .task {
             #if DEBUG
             if let name = UserDefaults.standard.string(forKey: "mcpAgent"), let item = MCPLog.Agent(rawValue: name) { agent = item }
+            if UserDefaults.standard.bool(forKey: "mcpSkills") { model.mcpSkills = true }
             #endif
             // Журнал пишет другой процесс (сам сервер) — перечитываем, пока раздел открыт.
             while !Task.isCancelled {
                 recent = MCPLog.recent()
                 try? await Task.sleep(for: .seconds(3))
+            }
+        }
+    }
+
+    private var agentRow: some View {
+        SettingRow(title: "нейросеть", subtitle: agent.rawValue) {
+            Menu("изменить") {
+                ForEach(MCPLog.Agent.allCases, id: \.self) { item in Button(item.rawValue) { agent = item; copied = nil } }
+            }
+            .menuStyle(.button).buttonStyle(WhitePillStyle()).fixedSize()
+        }
+    }
+
+    @ViewBuilder private var connection: some View {
+        SettingRow(title: "подключить", subtitle: agent == .cursor ? String(localized: "вставь в ~/.cursor/mcp.json")
+                                                                    : String(localized: "команда в терминал, один раз")) {
+            copyButton("connect", MCPLog.connect(agent))
+        }
+        SettingRow(title: "закрытые папки", subtitle: hidden.isEmpty ? String(localized: "нет — видно всё хранилище")
+                                                                   : hidden.sorted().joined(separator: ", ")) {
+            Menu("выбрать") {
+                ForEach(model.tree.folders.map(\.name), id: \.self) { name in
+                    Toggle(name, isOn: Binding(get: { hidden.contains(name) }, set: { on in
+                        if on { hidden.insert(name) } else { hidden.remove(name) }
+                        MCPLog.hiddenFolders = hidden
+                    }))
+                }
+            }
+            .menuStyle(.button).buttonStyle(WhitePillStyle()).fixedSize()
+        }
+        SwitchRow(title: "только чтение", subtitle: "нейросеть ищет и читает, но не создаёт заметки и задачи",
+                  isOn: $readOnly) { MCPLog.readOnly = $0; readOnly = $0 }
+        Text("последние обращения")
+            .font(Martian.body.font(13)).foregroundStyle(Theme.ink)
+            .padding(.top, 32).padding(.bottom, 8)
+        if recent.isEmpty {
+            Text("пока не было").font(Martian.body.font(12)).foregroundStyle(NotesLayout.gray)
+        }
+        ForEach(Array(recent.enumerated()), id: \.offset) { _, item in
+            HStack(spacing: 12) {
+                Text(item.date.formatted(.dateTime.day().month(.abbreviated).hour().minute().locale(.app)))
+                    .foregroundStyle(NotesLayout.gray).frame(width: 110, alignment: .leading)
+                Text(item.tool).foregroundStyle(Theme.ink).frame(width: 110, alignment: .leading)
+                Text(item.target).foregroundStyle(Theme.ink.opacity(0.7)).lineLimit(1)
+            }
+            .font(Martian.body.font(12))
+        }
+    }
+
+    // Скилл: установить в папку нейросети (Claude Code, Codex) или скопировать текст (Cursor).
+    @ViewBuilder private var skills: some View {
+        ForEach(MCPLog.skills, id: \.name) { skill in
+            SettingRow(title: skill.title, subtitle: skill.about) {
+                if agent == .cursor {
+                    copyButton(skill.name, skill.text)
+                } else {
+                    Button(copied == skill.name || MCPLog.installed(agent, skill) ? "установлен" : "установить") {
+                        copied = (try? MCPLog.install(agent, skill)) != nil ? skill.name : nil
+                    }
+                    .buttonStyle(WhitePillStyle())
+                }
             }
         }
     }
