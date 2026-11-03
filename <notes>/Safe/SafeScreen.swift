@@ -70,6 +70,20 @@ final class SafeModel {
         }
     }
 
+    // Сейф без мастер-пароля: ключ сначала в Связку ключей, и только если он там — создаём файл.
+    // Иначе ключ потерялся бы вместе с сейфом.
+    func create(_ vault: URL) {
+        let key = PasswordSafe.generate(length: 32)
+        let testing = UserDefaults.standard.bool(forKey: "testVault")
+        guard testing || (try? remembered(vault).save(key)) != nil else {
+            error = String(localized: "связка ключей не приняла ключ — придумай свой мастер-пароль"); return
+        }
+        unlock(vault, key)
+    }
+
+    // Ключ (мастер-пароль) — в буфер, чтобы ввести на другом Mac; через минуту стирается.
+    func copyKey() { if let password { Self.copy(password) } }
+
     func lock() { password = nil; items = []; open = nil }
 
     func save(_ vault: URL) {
@@ -144,8 +158,9 @@ struct SafeSidebar: View {
                                count: safe.items.filter { $0.kind == kind }.count,
                                selected: safe.kind == kind) { safe.kind = kind; safe.open = nil }
                 }
-                SidebarRow(glyph: .settings, title: "закрыть сейф", selected: false) { safe.lock() }
+                SidebarRow(glyph: .key, title: "ключ для другого mac", selected: false) { safe.copyKey() }
                     .padding(.top, 12)
+                SidebarRow(glyph: .settings, title: "закрыть сейф", selected: false) { safe.lock() }
             }
         }
     }
@@ -156,6 +171,7 @@ struct SafeScreen: View {
     let model: NotesModel
     @State private var entry = ""
     @State private var repeatEntry = ""
+    @State private var ownPassword = false
 
     var body: some View {
         let safe = model.safe
@@ -166,7 +182,8 @@ struct SafeScreen: View {
                     .font(Martian.heading.font(26)).kerning(Theme.tracking(-7, size: 26)).foregroundStyle(Theme.ink)
                 Text(safe.unlocked ? "в зашифрованном файле .safe/safe.enc, на github — только шифром"
                                    : safe.canUseTouchID(vault) ? "сейф открывается touch id или паролем mac"
-                                   : "мастер-пароль нужен один раз на этом mac — дальше touch id или пароль mac")
+                                   : PasswordSafe.exists(vault: vault) ? "на новом mac — ключ сейфа один раз, дальше touch id или пароль mac"
+                                   : "ключ придумает mac и спрячет в связку ключей — открывать будешь touch id")
                     .font(Martian.body.font(13)).kerning(Theme.tracking(-7, size: 13)).foregroundStyle(NotesLayout.gray)
                     .padding(.top, 1).padding(.bottom, 40)
                 if safe.unlocked { items(safe, vault) } else { lockScreen(safe, vault) }
@@ -204,8 +221,22 @@ struct SafeScreen: View {
         }
     }
 
+    // Новый сейф — без мастер-пароля (03.11.2026, «не хочу писать это»): ключ придумывает Mac и кладёт
+    // в Связку ключей. Свой пароль — по желанию; для другого Mac ключ копируется из открытого сейфа.
     @ViewBuilder private func masterPassword(_ safe: SafeModel, _ vault: URL, _ creating: Bool) -> some View {
-        SecureField(creating ? "придумай мастер-пароль" : "мастер-пароль", text: $entry)
+        if creating && !ownPassword {
+            Button("создать сейф") { safe.create(vault) }
+                .buttonStyle(WhitePillStyle())
+            Button("свой мастер-пароль") { ownPassword = true }
+                .buttonStyle(QuietLinkStyle(size: 12, opacity: 0.6)).padding(.top, 10)
+            if let error = safe.error { Text(error).font(Martian.body.font(12)).foregroundStyle(Theme.coral).padding(.top, 6) }
+        } else {
+            passwordFields(safe, vault, creating)
+        }
+    }
+
+    @ViewBuilder private func passwordFields(_ safe: SafeModel, _ vault: URL, _ creating: Bool) -> some View {
+        SecureField(creating ? "придумай мастер-пароль" : "ключ сейфа или мастер-пароль", text: $entry)
             .textFieldStyle(.plain).font(Martian.body.font(15))
             .padding(14).frame(width: 360)
             .background(RoundedRectangle(cornerRadius: 14).fill(Theme.fg.opacity(0.04)))
