@@ -271,8 +271,9 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .cal-chip { height: 20px; padding: 0 6px; border-radius: 6px; font-size: 11px; line-height: 20px; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; background: rgba(229, 77, 51, 0.16); box-shadow: inset 3px 0 0 var(--coral); cursor: grab; }
 .cal-chip.done, .cal-event.done { opacity: .5; }
-.cal-scroll { flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--line); scrollbar-width: thin;
+.cal-scroll { flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--line); scrollbar-width: none;
   -webkit-mask-image: linear-gradient(transparent, #000 12px); mask-image: linear-gradient(transparent, #000 12px); }
+.cal-scroll::-webkit-scrollbar { display: none; }
 .cal-grid { position: relative; }
 .cal-hour { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); }
 .cal-hour small { position: absolute; left: 0; top: -7px; width: 44px; text-align: right; font-size: 11px; color: var(--gray);
