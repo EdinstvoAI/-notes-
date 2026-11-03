@@ -757,6 +757,65 @@ fn set_app_icon(dark: bool, window: tauri::WebviewWindow) -> Result<(), String> 
     window.set_icon(tauri::image::Image::from_bytes(bytes).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
 }
 
+/// Значок в трее — «<n>» шрифтом логотипа, как в строке меню на маке. Рисует интерфейс (там шрифт), сюда — PNG.
+#[tauri::command]
+fn set_tray_icon(png: Vec<u8>, app: tauri::AppHandle) -> Result<(), String> {
+    let tray = app.tray_by_id("notes").ok_or("нет значка")?;
+    tray.set_icon(Some(tauri::image::Image::from_bytes(&png).map_err(|e| e.to_string())?)).map_err(|e| e.to_string())
+}
+
+/// «открыть <notes>» из панели трея.
+#[tauri::command]
+fn show_main(app: tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
+
+/// Панель трея — порт `MenuBarItem`: окно без рамки над значком, прячется, когда уходит фокус.
+fn create_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+    let panel = tauri::WebviewWindowBuilder::new(app, "tray", tauri::WebviewUrl::App("tray.html".into()))
+        .title("<notes>")
+        .inner_size(300.0, 380.0)
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .visible(false)
+        .build()?;
+    platform::window::apply_glass(&panel);
+    let mut tray = TrayIconBuilder::with_id("notes").tooltip("<notes>");
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+    tray.on_tray_icon_event(|tray, event| {
+        let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, rect, .. } = event else { return };
+        let Some(panel) = tray.app_handle().get_webview_window("tray") else { return };
+        if panel.is_visible().unwrap_or(false) {
+            let _ = panel.hide();
+            return;
+        }
+        // Над значком: панель трея внизу — окно выше, по центру значка; у края экрана не вылезаем.
+        let scale = panel.scale_factor().unwrap_or(1.0);
+        let (pos, size) = (rect.position.to_physical::<f64>(scale), rect.size.to_physical::<f64>(scale));
+        let (w, h) = (300.0 * scale, 380.0 * scale);
+        let mut x = pos.x + size.width / 2.0 - w / 2.0;
+        let mut y = if pos.y > h { pos.y - h - 8.0 * scale } else { pos.y + size.height + 8.0 * scale };
+        if let Ok(Some(m)) = panel.current_monitor() {
+            x = x.clamp(m.position().x as f64, m.position().x as f64 + m.size().width as f64 - w);
+            y = y.max(m.position().y as f64);
+        }
+        let _ = panel.set_position(tauri::PhysicalPosition::new(x, y));
+        let _ = panel.show();
+        let _ = panel.set_focus();
+    })
+    .build(app)?;
+    Ok(())
+}
+
 /// «Создать папку» на первом входе — как на маке: окно сохранения с именем «notes», папка создаётся там.
 #[tauri::command]
 fn create_vault_at(path: String, state: State<AppState>, app: tauri::AppHandle) -> Result<Folder, String> {
@@ -796,6 +855,10 @@ pub fn run() {
                 platform::window::apply_glass(&window);
             }
             dictation::create_orb(app.handle())?;
+            // Без трея (нет области уведомлений) приложение всё равно работает.
+            if let Err(e) = create_tray(app.handle()) {
+                eprintln!("tray: {e}");
+            }
             // Свой хоткей из настроек — вместо стандартного.
             if let Some(h) = platform::settings::pref_str(app.handle(), "hotkey") {
                 use tauri_plugin_global_shortcut::GlobalShortcutExt;
@@ -810,7 +873,7 @@ pub fn run() {
             open_vault, create_vault, create_vault_at, set_app_icon, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
             create_folder, duplicate, move_into, copy_in, trash, untrash, reveal, open_default, absolute, pins, set_pins,
             templates, create_from_template, daily,
-            set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, safe::safe_state, safe::safe_create, safe::safe_unlock, safe::safe_unlock_hello, safe::safe_lock, safe::safe_items, safe::safe_put, safe::safe_delete, safe::safe_import, safe::safe_codes, safe::safe_totp, safe::safe_generate, safe::safe_weak, safe::safe_copy, safe::screen_locked, mcp::mcp_info, mcp::mcp_clear_log, mcp::mcp_skills, mcp::mcp_install_skill, git_history, git_revert, git_restore, git_file_at, git_restore_file, selftest, selftest_slow, selftest_log, selftest_env,
+            set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, set_tray_icon, show_main, safe::safe_state, safe::safe_create, safe::safe_unlock, safe::safe_unlock_hello, safe::safe_lock, safe::safe_items, safe::safe_put, safe::safe_delete, safe::safe_import, safe::safe_codes, safe::safe_totp, safe::safe_generate, safe::safe_weak, safe::safe_copy, safe::screen_locked, mcp::mcp_info, mcp::mcp_clear_log, mcp::mcp_skills, mcp::mcp_install_skill, git_history, git_revert, git_restore, git_file_at, git_restore_file, selftest, selftest_slow, selftest_log, selftest_env,
             github_status, github_code, github_finish, github_cancel, github_sign_out, github_sync, open_github,
             lock_state, lock_seen, lock_needed_on_return, pin_set, pin_clear, pin_check, hello_verify,
             dictation_toggle, models, model_download, model_remove, dictation_test,

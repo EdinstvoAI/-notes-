@@ -14,7 +14,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 notes-core = { path = "../core" }
-tauri = { version = "2", features = ["macos-private-api", "protocol-asset", "image-png"] }
+tauri = { version = "2", features = ["macos-private-api", "protocol-asset", "image-png", "tray-icon"] }
 tauri-plugin-dialog = "2"
 trash = "5"
 ureq = { version = "2", features = ["json"] }

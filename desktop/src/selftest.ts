@@ -81,6 +81,11 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     const locked = !(await invoke<{ unlocked: boolean }>("safe_state")).unlocked;
     await invoke("safe_unlock", { text: "Тест-пароль-2026" });
     await check("safe: lock, wrong key refused, reopen", locked && (await invoke<unknown[]>("safe_items")).length === 2);
+    // Панель трея с открытым сейфом: тот же сейф, что в окне.
+    const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+    const tray = await WebviewWindow.getByLabel("tray");
+    await check("tray panel exists", !!tray);
+    if (tray && (await invoke<string | null>("selftest_env", { name: "NOTES_SELFTEST_HOLD" }))) { await tray.setPosition(new (await import("@tauri-apps/api/dpi")).PhysicalPosition(700, 300)); await tray.show(); await tray.setFocus(); await pause(4000); await tray.hide(); }
     await invoke("safe_lock");
     // MCP: раздел, «только чтение» пишется в настройки — его прочтёт `--mcp`.
     ui.app.querySelector<HTMLElement>('[data-section="mcp"]')?.click();

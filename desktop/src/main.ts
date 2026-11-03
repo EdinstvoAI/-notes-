@@ -502,6 +502,7 @@ function applyPrefs(next: Prefs) {
   }
   setLanguage(languageFor(next.uiLanguage));
   if (backend?.inTauri) void import("@tauri-apps/api/core").then(({ invoke }) => invoke("set_app_icon", { dark: isDark() }).catch(() => {}));
+  if (backend?.inTauri) void trayIcon();
   root.style.setProperty("--note-size", `${next.textSize ?? 15}px`);
   root.style.setProperty("--note-grow", `${(next.textSize ?? 15) - 15}px`);
   document.querySelectorAll<HTMLElement>(".note-text").forEach((e) => (e.spellcheck = next.spellcheck ?? true));
@@ -815,3 +816,19 @@ export const shell = { get backend() { return backend; }, get state() { return s
     await openNote(demo);
   }
 })();
+
+/** Значок трея — «<n>» шрифтом логотипа (на маке — в строке меню), под тему панели задач. */
+async function trayIcon() {
+  await document.fonts.load('26px "Martian Logo"').catch(() => {});
+  const c = document.createElement("canvas");
+  c.width = c.height = 32;
+  const g = c.getContext("2d")!;
+  g.fillStyle = isDark() ? "#fff" : "#000";
+  g.font = '26px "Martian Logo"';
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText("<n>", 16, 17, 32);
+  const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/png"));
+  if (!blob) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("set_tray_icon", { png: [...new Uint8Array(await blob.arrayBuffer())] }).catch(() => {});
+}

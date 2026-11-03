@@ -1595,6 +1595,162 @@
 "en": "⌘K from anywhere",
 "sr": "⌘K odasvud"
 },
+"выгрузи пароли в файл CSV: настройки → пароли → экспорт": {
+"en": "export passwords to a CSV file: settings → passwords → export",
+"sr": "izvezi lozinke u CSV fajl: podešavanja → lozinke → izvoz"
+},
+"здесь нажми «выбрать файл» и укажи его": {
+"en": "click “choose file” here and pick it",
+"sr": "ovde klikni „izaberi fajl“ i izaberi ga"
+},
+"из сырого текста — решения, задачи и заметка": {
+"en": "from raw text: decisions, tasks and a note",
+"sr": "iz sirovog teksta — odluke, zadaci i beleška"
+},
+"итоги недели": {
+"en": "weekly review",
+"sr": "nedeljni pregled"
+},
+"ключ придумает компьютер и спрячет в диспетчер учётных данных — открывать будешь windows hello": {
+"en": "the computer makes up the key and hides it in Credential Manager; you open it with Windows Hello",
+"sr": "računar smišlja ključ i čuva ga u Credential Manager — otvaraš ga sa Windows Hello"
+},
+"ключ сейфа или мастер-пароль": {
+"en": "safe key or master password",
+"sr": "ključ sefa ili glavna lozinka"
+},
+"ключ скопирован на минуту": {
+"en": "key copied for a minute",
+"sr": "ključ kopiran na minut"
+},
+"конспект встречи": {
+"en": "meeting notes",
+"sr": "beleške sa sastanka"
+},
+"на новом компьютере — ключ сейфа один раз, дальше windows hello": {
+"en": "on a new computer, the safe key once, then Windows Hello",
+"sr": "na novom računaru — ključ sefa jednom, dalje Windows Hello"
+},
+"находит заметки на ту же тему и предлагает связи": {
+"en": "finds notes on the same topic and suggests links",
+"sr": "pronalazi beleške na istu temu i predlaže veze"
+},
+"нейросеть": {
+"en": "AI",
+"sr": "AI"
+},
+"нейросеть ищет и читает, но не создаёт заметки и задачи": {
+"en": "the AI searches and reads but doesn't create notes or tasks",
+"sr": "AI pretražuje i čita, ali ne pravi beleške i zadatke"
+},
+"никогда": {
+"en": "never",
+"sr": "nikad"
+},
+"никогда — опасно: открытый сейф увидит любой, кто сел за компьютер": {
+"en": "never: risky, anyone at the computer sees the open safe",
+"sr": "nikad — opasno: otvoren sef vidi svako ko sedne za računar"
+},
+"новый код 2fa": {
+"en": "new 2FA code",
+"sr": "novi 2FA kod"
+},
+"новый пароль": {
+"en": "new password",
+"sr": "nova lozinka"
+},
+"новый секрет": {
+"en": "new secret",
+"sr": "nova tajna"
+},
+"отвечает, опираясь на заметки, и ссылается на них": {
+"en": "answers from your notes and cites them",
+"sr": "odgovara na osnovu beleški i navodi ih"
+},
+"открой Edge, Chrome или «Пароли iCloud» для Windows": {
+"en": "open Edge, Chrome or iCloud Passwords for Windows",
+"sr": "otvori Edge, Chrome ili iCloud Passwords za Windows"
+},
+"открыть по windows hello": {
+"en": "open with Windows Hello",
+"sr": "otvori sa Windows Hello"
+},
+"папок нет": {
+"en": "no folders",
+"sr": "nema foldera"
+},
+"перенести из браузера": {
+"en": "import from a browser",
+"sr": "uvezi iz pregledača"
+},
+"поиск связей": {
+"en": "find links",
+"sr": "pronađi veze"
+},
+"раскладывает «Входящие» на задачи и заметки": {
+"en": "sorts the Inbox into tasks and notes",
+"sr": "razvrstava Prijemno u zadatke i beleške"
+},
+"свой мастер-пароль": {
+"en": "my own master password",
+"sr": "sopstvena glavna lozinka"
+},
+"сейф открывается windows hello: лицо, палец или пин-код windows": {
+"en": "the safe opens with Windows Hello: face, finger or Windows PIN",
+"sr": "sef se otvara sa Windows Hello: lice, prst ili Windows PIN"
+},
+"секрет": {
+"en": "secret",
+"sr": "tajna"
+},
+"секретный ключ или ссылка otpauth:// — из настроек 2fa на сайте": {
+"en": "secret key or otpauth:// link, from the site's 2FA settings",
+"sr": "tajni ključ ili otpauth:// link — iz 2FA podešavanja sajta"
+},
+"сервис, например github": {
+"en": "service, e.g. github",
+"sr": "servis, npr. github"
+},
+"скрыть перенос": {
+"en": "hide import",
+"sr": "sakrij uvoz"
+},
+"собирает открытые задачи в план на день": {
+"en": "turns open tasks into a plan for the day",
+"sr": "pravi plan za dan od otvorenih zadataka"
+},
+"только на этом компьютере": {
+"en": "only on this computer",
+"sr": "samo na ovom računaru"
+},
+"удали этот файл и очисти корзину: в нём пароли открытым текстом": {
+"en": "delete that file and empty the Recycle Bin: it has passwords in plain text",
+"sr": "obriši taj fajl i isprazni korpu: u njemu su lozinke kao običan tekst"
+},
+"установить": {
+"en": "install",
+"sr": "instaliraj"
+},
+"что сделано и что осталось — отдельной заметкой": {
+"en": "what's done and what's left, as a note",
+"sr": "šta je urađeno i šta je ostalo — kao beleška"
+},
+"ключ для другого компьютера": {
+"en": "key for another computer",
+"sr": "ključ za drugi računar"
+},
+"вставь в %USERPROFILE%\\.cursor\\mcp.json": {
+"en": "paste into %USERPROFILE%\\.cursor\\mcp.json",
+"sr": "nalepi u %USERPROFILE%\\.cursor\\mcp.json"
+},
+"локальный сервер: claude code, codex и cursor работают с заметками на этом компьютере, без сети": {
+"en": "a local server: Claude Code, Codex and Cursor work with notes on this computer, offline",
+"sr": "lokalni server: Claude Code, Codex i Cursor rade sa beleškama na ovom računaru, bez mreže"
+},
+"сейф открывается windows hello": {
+"en": "the safe opens with Windows Hello",
+"sr": "sef se otvara sa Windows Hello"
+},
 "__patterns": [
 [
 "^\\\n\\\nУже\\ скачано:\\ (.+?)\\.\\ Можно\\ надиктовывать\\ ей\\ прямо\\ сейчас\\.$",
