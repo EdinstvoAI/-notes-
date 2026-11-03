@@ -5,6 +5,7 @@ name: release-windows
 on:
   push:
     tags: ["win-v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -23,6 +24,8 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           name: "<notes> v1.0.0 beta"
+          tag_name: win-v1.0.0-beta
+          target_commitish: ${{ github.sha }}
           prerelease: true
           body_path: desktop/RELEASE-BETA.md
           files: desktop/target/release/bundle/nsis/*.exe
