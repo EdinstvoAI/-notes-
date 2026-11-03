@@ -96,7 +96,7 @@ PIN code and Touch ID. Tokens and the PIN live in the Keychain, never in files.
 
 ### Windows beta
 
-1. Download **`<notes>_1.0.0-beta_x64-setup.exe`** from the [beta release](https://github.com/EdinstvoAI/-notes-/releases/tag/win-v1.0.0-beta).
+1. Download the **`.exe` installer** from the [beta release](https://github.com/EdinstvoAI/-notes-/releases/tag/win-v1.0.0-beta).
 2. The installer is not signed yet. If SmartScreen stops it, click **More info → Run anyway**.
 3. Point it at the same folder you use on your Mac, or a new one.
 
