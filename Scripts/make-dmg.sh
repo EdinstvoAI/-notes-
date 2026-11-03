@@ -6,7 +6,7 @@ set -e
 cd "$(dirname "$0")/.."
 APP="build/Build/Products/Release/<notes>.app"
 xcodebuild -project "<notes>.xcodeproj" -scheme "<notes>" -configuration Release -destination 'platform=macOS' \
-    -derivedDataPath build build | grep -E "BUILD (SUCCEEDED|FAILED)"
+    -derivedDataPath build $XCODE_ARGS build | grep -E "BUILD (SUCCEEDED|FAILED)"
 rm -rf build/dmg build/rw.dmg && mkdir -p build/dmg/.background
 cp -R "$APP" build/dmg/ && ln -s /Applications build/dmg/Applications
 swift Scripts/dmg-background.swift build/dmg/.background/bg.png

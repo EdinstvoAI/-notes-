@@ -1,0 +1,36 @@
+# Релиз сам: пуш тега vX.Y.Z → сборка DMG на macOS и релиз на GitHub с текстом из CHANGELOG.md
+# (03.11.2026, «автоматизировать релизы через action»). Подпись в CI — ad-hoc: сертификата Макара тут нет,
+# как и раньше, без нотаризации — первый запуск через правый клик → «открыть».
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  dmg:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          xcodebuild -version
+          xcodebuild -downloadComponent MetalToolchain
+      - name: SherpaOnnx
+        run: Scripts/fetch-sherpa-onnx.sh
+      - name: DMG
+        env:
+          XCODE_ARGS: CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
+        run: Scripts/make-dmg.sh
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Релиз уже выложили руками (DMG с подписью Макара) — не трогаем.
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && exit 0
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Раздел версии из CHANGELOG: от «## X.Y.Z» до следующего «## ».
+          awk -v v="$VERSION" '/^## /{p = index($0, "## " v " ") == 1; next} p' CHANGELOG.md > notes.md
+          test -s notes.md
+          gh release create "$GITHUB_REF_NAME" build/notes.dmg --title "<notes> $VERSION" --notes-file notes.md

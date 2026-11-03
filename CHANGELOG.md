@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.1.0 — 2026-11-03
+
+### Sync
+- New Sync section: click the sync capsule in the header. Every saved version, grouped by day,
+  drawn as a metro line.
+- Graph view: the whole history on one board. Click a version to see its files, the file as it
+  was then, and roll back. Pinch or ⌘+ / ⌘− to zoom.
+- Undo one version, restore everything to a version, or bring back a single file. Every rollback
+  is a new version on top, so it can be undone too. Works with GitHub or with local git only.
+
+### AI agents
+- Built-in MCP server: Claude, Codex and other agents can search and read your notes, create
+  notes and add tasks. Local only, no network. Settings → General → copy command.
+
+### Settings
+- Interface language: system, Русский, English, Srpski.
+
+### Calendar
+- Events look like Apple Calendar: compact titles, start–end time, wider day columns.
+- Overlapping events are layered so every title shows; full title on hover.
+
+### Dictation
+- The orb blurs its lines like frosted glass.
+
+### Fixes
+- Header section buttons no longer spill over the capsule edge.
+
 ## 1.0.0 — 2026-11-01
 
 First release. A notes app for macOS 27+: plain Markdown files in a folder, history in git,
