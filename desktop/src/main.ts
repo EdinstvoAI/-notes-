@@ -97,7 +97,7 @@ function fitHeader() {
   }
 }
 new ResizeObserver(() => { paintSlats(); fitHeader(); }).observe(app);
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paintSlats);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { paintSlats(); applyPrefs(prefs); });
 
 // ——— шапка ———
 function renderNav() {
@@ -479,6 +479,7 @@ function applyPrefs(next: Prefs) {
     else delete root.dataset.theme;
   }
   setLanguage(languageFor(next.uiLanguage));
+  if (backend?.inTauri) void import("@tauri-apps/api/core").then(({ invoke }) => invoke("set_app_icon", { dark: isDark() }).catch(() => {}));
   root.style.setProperty("--note-size", `${next.textSize ?? 15}px`);
   root.style.setProperty("--note-grow", `${(next.textSize ?? 15) - 15}px`);
   document.querySelectorAll<HTMLElement>(".note-text").forEach((e) => (e.spellcheck = next.spellcheck ?? true));

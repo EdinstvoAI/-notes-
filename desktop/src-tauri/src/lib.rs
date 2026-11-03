@@ -715,6 +715,20 @@ fn set_hotkey(combo: String, app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Иконка окна и панели задач — под тему, как иконка в Доке на маке (тёмная тема — тёмная иконка).
+#[tauri::command]
+fn set_app_icon(dark: bool, window: tauri::WebviewWindow) -> Result<(), String> {
+    let bytes: &[u8] = if dark { include_bytes!("../icons/taskbar-dark.png") } else { include_bytes!("../icons/taskbar-light.png") };
+    window.set_icon(tauri::image::Image::from_bytes(bytes).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+}
+
+/// «Создать папку» на первом входе — как на маке: окно сохранения с именем «notes», папка создаётся там.
+#[tauri::command]
+fn create_vault_at(path: String, state: State<AppState>, app: tauri::AppHandle) -> Result<Folder, String> {
+    std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+    open_vault(path, state, app)
+}
+
 /// Какая ОС — интерфейс выбирает стекло окна (Mica на Windows, Liquid Glass на маке).
 #[tauri::command]
 fn os() -> &'static str {
@@ -758,7 +772,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            open_vault, create_vault, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
+            open_vault, create_vault, create_vault_at, set_app_icon, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
             create_folder, duplicate, move_into, copy_in, trash, untrash, reveal, open_default, absolute, pins, set_pins,
             templates, create_from_template, daily,
             set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, selftest, selftest_slow, selftest_log, selftest_env,

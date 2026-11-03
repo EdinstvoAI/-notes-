@@ -466,3 +466,17 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .glass-lens { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 18px; pointer-events: none; z-index: 0; }
 .group.liquid > :not(.glass-lens) { position: relative; z-index: 1; }
 .group.liquid > .logo, .group.liquid > .search { position: absolute; }
+
+/* Загрузка и шаги первого входа (ONBOARDING.md §0) */
+.loading-scene { position: fixed; inset: 0; z-index: 60; background: rgb(var(--bg)); transition: opacity .6s var(--smooth); }
+.loading-scene canvas { position: absolute; inset: 0; }
+.loading-logo { position: absolute; left: 50%; top: 50%; font: 44px "Martian Logo"; font-weight: normal; letter-spacing: -0.05em; color: rgb(var(--fg));
+  transform: translate(-50%, -50%) scale(.92); opacity: 0; filter: blur(8px);
+  transition: opacity 1.4s var(--smooth), transform 1.4s var(--smooth), filter 1.4s var(--smooth), top .6s var(--smooth), left .6s var(--smooth), font-size .6s var(--smooth); }
+.loading-scene.logo-in .loading-logo { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+.loading-scene.logo-up .loading-logo { top: 39px; left: 32px; font-size: 15px; transform: translate(0, -50%); }
+.loading-scene.gone { opacity: 0; }
+.onboarding .unlock-sheet { transition: transform .7s var(--smooth); }
+.onboarding:not(.shown) .unlock-sheet { transform: translateY(60px); }
+.onboarding .unlock-sheet > * { transition: opacity .45s var(--smooth), filter .45s var(--smooth); }
+.onboarding.step-swap .unlock-sheet > * { opacity: 0; filter: blur(12px); transition: none; }

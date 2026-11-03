@@ -5,11 +5,37 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Api, Folder } from "./api";
 import { choosePin } from "./lock";
+import { drawSlats } from "./slats";
+
+/** Загрузка (кадр «Загрузка», ONBOARDING.md §0): планки растут в ширину 4 → 20 без зазоров за 2,4 с,
+ *  логотип проявляется (fade + scale), потом уезжает вверх, на место в шапке. */
+function loadingScene(): Promise<void> {
+  return new Promise((done) => {
+    const box = document.createElement("div");
+    box.className = "loading-scene";
+    box.innerHTML = `<canvas></canvas><b class="loading-logo">&lt;notes&gt;</b>`;
+    document.body.append(box);
+    const canvas = box.querySelector("canvas")!;
+    const dark = matchMedia("(prefers-color-scheme: dark)").matches || document.documentElement.dataset.theme === "dark";
+    const ease = (x: number) => 1 - Math.pow(1 - x, 3);
+    const start = performance.now();
+    const frame = (now: number) => {
+      const k = Math.min(1, (now - start) / 2400);
+      drawSlats(canvas, innerWidth, innerHeight, dark, 4 + 16 * ease(k));
+      if (k < 1) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+    setTimeout(() => box.classList.add("logo-in"), 400);
+    setTimeout(() => box.classList.add("logo-up"), 2400);
+    setTimeout(() => { box.classList.add("gone"); setTimeout(() => box.remove(), 600); done(); }, 2900);
+  });
+}
 
 type Step = "welcome" | "git" | "github" | "code" | "githubDone" | "models" | "permissions" | "password" | "done";
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-export function runOnboarding(backend: Api): Promise<Folder> {
+export async function runOnboarding(backend: Api): Promise<Folder> {
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) await loadingScene();
   return new Promise((resolve) => {
     const el = document.createElement("div");
     el.className = "unlock onboarding";
@@ -26,7 +52,11 @@ export function runOnboarding(backend: Api): Promise<Folder> {
         ${secondary ? `<button class="quiet" data-go="${secondary[1]}">${secondary[0]}</button>` : ""}
         ${extra ? `<p class="error">${esc(extra)}</p>` : ""}</div>`;
 
+    let first = true;
     const render = () => {
+      // Смена шага — старое уходит в размытие, новое проявляется (как шаги на маке).
+      if (!first) { el.classList.add("step-swap"); setTimeout(() => el.classList.remove("step-swap"), 30); }
+      first = false;
       el.innerHTML = {
         welcome: () => view("привет!", "выбери папку, куда сохранять заметки", ["создать папку", "create"], ["выбрать папку", "pick"]),
         git: () => view("git в папке", "папка станет git-репозиторием: любую правку можно откатить", ["инициализировать", "git"], ["пропустить, настрою потом", "models"]),
@@ -44,7 +74,13 @@ export function runOnboarding(backend: Api): Promise<Folder> {
       extra = "";
       try {
         if (to === "pick" || to === "create") {
-          tree = to === "pick" ? await backend.pickVault() : await invoke<Folder | null>("create_vault");
+          if (to === "pick") tree = await backend.pickVault();
+          else {
+            // Как на маке: окно сохранения, имя по умолчанию «notes», папка создаётся там.
+            const { save } = await import("@tauri-apps/plugin-dialog");
+            const path = await save({ defaultPath: "notes", title: "Новая папка для заметок. Обычные файлы, открываются любым редактором." });
+            tree = path ? await invoke<Folder>("create_vault_at", { path }) : null;
+          }
           if (!tree) return;
           step = "git";
         } else if (to === "git") {
