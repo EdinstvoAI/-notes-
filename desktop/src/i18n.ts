@@ -5,7 +5,21 @@
 import table from "./i18n.json";
 
 type Lang = "ru" | "en" | "sr";
-const dict = table as Record<string, { en: string; sr: string }>;
+const dict = table as unknown as Record<string, { en: string; sr: string }>;
+// Строки с числами: шаблоны из каталога мака (%lld, %@ → $1, $2) плюс свои строки Windows-версии.
+const patterns: [RegExp, string, string][] = [
+  ...((table as unknown as { __patterns: [string, string, string][] }).__patterns ?? []).map(([r, en, sr]) => [new RegExp(r), en, sr] as [RegExp, string, string]),
+  [/^сохранено только что$/, "saved just now", "sačuvano upravo"],
+  [/^сохранено (\d+) мин назад$/, "saved $1 min ago", "sačuvano pre $1 min"],
+  [/^сохранено (\d+) ч назад$/, "saved $1 h ago", "sačuvano pre $1 h"],
+  [/^синхронизировано только что$/, "synced just now", "sinhronizovano upravo"],
+  [/^(\d+) пап(?:ка|ки|ок) \| (\d+) замет(?:ка|ки|ок)$/, "$1 folders | $2 notes", "fascikli: $1 | beleške: $2"],
+  [/^(\d+) замет(?:ка|ки|ок)$/, "$1 notes", "beleške: $1"],
+  [/^изменено сегодня в (\S+) · (\d+) сл(?:ово|ова|ов)$/, "edited today at $1 · $2 words", "izmenjeno danas u $1 · reči: $2"],
+  [/^изменено (.+) в (\S+) · (\d+) сл(?:ово|ова|ов)$/, "edited $1 at $2 · $3 words", "izmenjeno $1 u $2 · reči: $3"],
+  [/^сегодня в (\S+)$/, "today at $1", "danas u $1"],
+  [/^(\d+) открыто \| (\d+) с датой$/, "$1 open | $2 dated", "otvoreno: $1 | sa datumom: $2"],
+];
 let lang: Lang = "ru";
 const USER = ".note-text, .note-title, .transcript, .task-title, .task-note, [data-note], [data-folder], [data-file], .card, .note-row, .tab, .result-head, .snippet, .device-code, input, textarea";
 
@@ -17,8 +31,13 @@ export function languageFor(pref: string | undefined): Lang {
 
 const tr = (s: string) => {
   const key = s.trim();
-  const hit = key && dict[key];
-  return hit ? s.replace(key, hit[lang as "en" | "sr"]) : s;
+  if (!key) return s;
+  const hit = dict[key];
+  if (hit && typeof hit === "object" && "en" in hit) return s.replace(key, hit[lang as "en" | "sr"]);
+  for (const [re, en, sr] of patterns) {
+    if (re.test(key)) return s.replace(key, key.replace(re, lang === "en" ? en : sr));
+  }
+  return s;
 };
 
 function translate(root: Node) {
@@ -43,6 +62,12 @@ export function setLanguage(next: Lang) {
   observer?.disconnect();
   if (next === "ru") return;
   translate(document.body);
-  observer = new MutationObserver((list) => list.forEach((m) => m.addedNodes.forEach(translate)));
-  observer.observe(document.body, { childList: true, subtree: true });
+  observer = new MutationObserver((list) => list.forEach((m) => {
+    m.addedNodes.forEach(translate);
+    if (m.type === "characterData" && m.target.parentElement && !m.target.parentElement.closest(USER)) {
+      const v = tr(m.target.nodeValue ?? "");
+      if (v !== m.target.nodeValue) m.target.nodeValue = v;
+    }
+  }));
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 }

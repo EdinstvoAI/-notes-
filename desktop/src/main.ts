@@ -497,6 +497,10 @@ async function syncWithGithub() {
     applyPrefs({ ...prefs, lastSync: Date.now() });
     await backend.setPrefs(prefs);
     // Пришли правки с другого компьютера — перечитать дерево и открытую заметку.
+    // Правили одно и то же на двух компьютерах — сказать, где лежит вторая версия (текст не потерян).
+    if (result.kind === "merged" && result.conflicts.length) {
+      toast(`был конфликт: ${result.conflicts.map((p) => p.split("/").pop()).join(", ")} — версия с другого компьютера лежит рядом, «(конфликт …)»`);
+    }
     if (result.kind !== "upToDate") {
       await reload();
       if (state.selection.kind === "note") state.text = await backend.read(state.selection.path).catch(() => state.text);
@@ -537,6 +541,14 @@ setInterval(() => void refreshSync(), 30_000);
 async function visibleTasks() {
   const off = new Set(prefs.excludedFolders ?? []);
   return (await backend.tasks()).filter((t) => !off.has(t.note.split("/")[0]) || !t.note.includes("/"));
+}
+
+/** Короткое сообщение внизу листа, само уходит через 6 с. */
+function toast(text: string) {
+  const el = Object.assign(document.createElement("div"), { className: "toast", textContent: text });
+  document.body.append(el);
+  requestAnimationFrame(() => el.classList.add("shown"));
+  setTimeout(() => { el.classList.remove("shown"); setTimeout(() => el.remove(), 400); }, 6000);
 }
 
 // ——— шаблоны: папка «шаблоны» хранилища, подстановки дата/время/название ———

@@ -455,3 +455,8 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .cal-resize { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
 .cal-card-actions { display: flex; gap: 6px; margin-top: 10px; }
 .pill.danger { color: var(--coral); }
+
+.toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 12px); max-width: 560px; padding: 12px 18px; border-radius: 18px;
+  background: rgba(var(--bg), 0.86); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); box-shadow: inset 0 0 0 1px var(--edge), 0 10px 40px rgba(0,0,0,.16);
+  opacity: 0; transition: opacity .3s var(--smooth), transform .3s var(--smooth); z-index: 50; }
+.toast.shown { opacity: 1; transform: translate(-50%, 0); }
