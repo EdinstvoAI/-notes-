@@ -43,7 +43,7 @@ body {
   color: var(--ink);
   font: 13px/1.25 "Martian", system-ui, sans-serif;
   letter-spacing: var(--track);
-  -webkit-font-smoothing: antialiased;
+  -webkit-font-smoothing: auto; /* как в нативном окне мака: antialiased делал текст тоньше эталона */
   user-select: none;
   cursor: default;
 }
@@ -52,7 +52,7 @@ body.tauri-windows { background: rgba(var(--bg), 0.72); }
 button { font: inherit; color: inherit; letter-spacing: inherit; background: none; border: 0; cursor: default; }
 .dot { display: block; flex: none; }
 
-#app { position: relative; width: 100%; height: 100%; min-width: 820px; min-height: 760px; overflow: hidden; }
+#app { position: relative; width: 100%; height: 100%; min-width: 870px; min-height: 760px; overflow: hidden; }
 
 /* ——— появление: шапка, панель и лист по очереди из размытия, чуть снизу ——— */
 .arrive { opacity: 0; filter: blur(12px); transform: translateY(14px);
@@ -344,7 +344,7 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .settings { padding: 36px 58px 40px; }
 .settings h1 { font: 26px "Martian Heading"; letter-spacing: var(--track); font-weight: normal; }
 .settings-sub { margin-top: 6px; color: var(--gray); }
-.settings-rows { margin-top: 40px; display: flex; flex-direction: column; gap: 5px; }
+.settings-rows { margin-top: 45px; display: flex; flex-direction: column; gap: 5px; }
 .setting { width: min(640px, 100%); min-height: 53px; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 27px;
   background: linear-gradient(90deg, rgba(var(--fg), 0.045), rgba(var(--fg), 0.018), transparent);
   box-shadow: inset 0 1px 0 var(--edge), inset 0 0 0 1px rgba(255, 255, 255, 0.05); }
@@ -353,10 +353,11 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .setting small { font-size: 11px; color: rgba(var(--fg), 0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pill { padding: 6px 14px; border-radius: 16px; background: rgba(var(--bg), 0.55); box-shadow: 0 0 2px rgba(var(--bg), 0.6); white-space: nowrap; }
 .pill:hover { background: rgba(var(--bg), 0.8); }
-.switch { width: 38px; height: 22px; border-radius: 11px; background: rgba(var(--fg), 0.15); position: relative; transition: background-color .2s var(--smooth); flex: none; }
-.switch i { position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff;
+/* Как системный переключатель мака 26 в эталоне: дорожка 54×26, ручка-капсула 32×18. */
+.switch { width: 54px; height: 26px; border-radius: 13px; background: rgba(var(--fg), 0.15); position: relative; transition: background-color .2s var(--smooth); flex: none; }
+.switch i { position: absolute; left: 4px; top: 4px; width: 32px; height: 18px; border-radius: 9px; background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); transition: transform .2s var(--smooth); }
-.switch.on { background: var(--coral); } .switch.on i { transform: translateX(16px); }
+.switch.on { background: var(--coral); } .switch.on i { transform: translateX(14px); }
 .segmented { display: flex; gap: 2px; padding: 3px; border-radius: 16px; background: rgba(var(--bg), 0.45); box-shadow: inset 0 0 0 1px var(--edge); flex: none; }
 .segmented button { height: 21px; padding: 0 10px; border-radius: 11px; color: var(--gray); }
 .segmented button.on { background: rgb(var(--bg)); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }

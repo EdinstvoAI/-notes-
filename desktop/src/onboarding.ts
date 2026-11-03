@@ -13,7 +13,14 @@ import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 async function onboardingWindow(on: boolean) {
   const w = getCurrentWindow();
   try {
-    if (on) { await w.setMinSize(new LogicalSize(560, 440)); await w.setSize(new LogicalSize(560, 440)); }
+    if (on) {
+      await w.setMinSize(new LogicalSize(560, 440)); await w.setSize(new LogicalSize(560, 440));
+      // 440 — это содержимое, как у SwiftUI-окна; если заголовок съел часть, добираем его высоту.
+      // Меряем самой страницей: размер окна с Tauri включает полосу заголовка, а страница её не получает.
+      await new Promise((r) => setTimeout(r, 60));
+      const add = 440 - innerHeight;
+      if (add > 0) { await w.setMinSize(new LogicalSize(560, 440 + add)); await w.setSize(new LogicalSize(560, 440 + add)); }
+    }
     else { await w.setSize(new LogicalSize(1200, 760)); await w.setMinSize(new LogicalSize(870, 760)); }
     await w.center();
   } catch { /* в браузере без Tauri окна нет */ }

@@ -29,10 +29,11 @@ void main() {
   col.b = mix(col.b, pick(at + n * ca).b, 0.6);
   // Подсветка стекла (лист #F9F9F9 20 % как на маке), блик по верхней кромке, тень внизу.
   vec3 sheet = dark > 0.5 ? vec3(0.12) : vec3(0.976);
-  col = mix(col, sheet, 0.28);
+  // Ночью стекло мака плотнее: планки под капсулой почти не видны (сверка со Swift, 04.11).
+  col = mix(col, sheet, dark > 0.5 ? 0.6 : 0.28);
   float rim = smoothstep(-2.0 * dpr, 0.0, d);
   float top = smoothstep(size.y * 0.55, 0.0, p.y) * (1.0 - smoothstep(0.0, band * 1.2, -d));
-  col += vec3(1.0) * (rim * (dark > 0.5 ? 0.18 : 0.55) + top * (dark > 0.5 ? 0.06 : 0.22));
+  col += vec3(1.0) * (rim * (dark > 0.5 ? 0.26 : 0.55) + top * (dark > 0.5 ? 0.06 : 0.22));
   col *= 1.0 - smoothstep(size.y * 0.6, size.y, p.y) * 0.04;
   float a = 1.0 - smoothstep(-1.0, 0.0, d);
   gl_FragColor = vec4(col * a, a);

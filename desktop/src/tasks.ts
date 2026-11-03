@@ -42,9 +42,10 @@ export function groupOf(t: TaskRow, today = iso(new Date()), weekEnd = addDays(7
 
 function visible(all: TaskRow[]): TaskRow[] {
   switch (filter) {
-    case "all": return all.filter((t) => !t.done);
+    // Как `TasksModel.matches` на маке: «все» — вместе с готовыми, «на неделе» — без сегодняшних.
+    case "all": return all;
     case "today": return all.filter((t) => groupOf(t) === "сегодня");
-    case "week": return all.filter((t) => ["сегодня", "на неделе"].includes(groupOf(t)));
+    case "week": return all.filter((t) => groupOf(t) === "на неделе");
     case "noDate": return all.filter((t) => !t.done && !t.date);
     case "dated": return all.filter((t) => !t.done && t.date);
     case "done": return all.filter((t) => t.done);
@@ -56,7 +57,7 @@ function when(t: TaskRow): string {
   const today = iso(new Date());
   const day = t.date === today ? "сегодня"
     : new Date(t.date + "T12:00").toLocaleDateString("ru", { weekday: "short", day: "numeric", month: "short" }).replaceAll(".", "").replaceAll(",", "");
-  return t.time ? `${day}, ${t.time}` : day;
+  return t.time ? `${day}, ${t.time.padStart(5, "0")}` : day;
 }
 
 export function mountTasks(root: HTMLElement, sidebar: HTMLElement, host: TasksHost) {
@@ -95,8 +96,8 @@ export function mountTasks(root: HTMLElement, sidebar: HTMLElement, host: TasksH
       return;
     }
     body.innerHTML = GROUPS.map((g) => {
-      const items = list.filter((t) => groupOf(t) === g)
-        .sort((a, b) => `${a.date ?? "9"}${a.time ?? ""}`.localeCompare(`${b.date ?? "9"}${b.time ?? ""}`));
+      // Порядок — как в файлах (мак не сортирует по сроку), срочные первыми.
+      const items = list.filter((t) => groupOf(t) === g).sort((a, b) => Number(!!b.urgent) - Number(!!a.urgent));
       return items.length ? `<h2>${g}</h2>${items.map(row).join("")}` : "";
     }).join("");
   }
