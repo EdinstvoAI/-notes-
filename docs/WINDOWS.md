@@ -378,3 +378,5 @@ desktop/
 
 - Грабли мака: неподписанный Tauri-dmg на Apple Silicon — «notes is damaged». Лечится ad-hoc подписью
   `bundle.macOS.signingIdentity: "-"` (1.1.1-beta, 2026-11-03); до нотаризации — ещё «Всё равно открыть».
+- Грабли мака: git2 с `https` линкует OpenSSL из Homebrew раннера — у людей «Library not loaded: libssl».
+  Под macOS `vendored-openssl`, в CI — проверка `otool -L` без /opt/homebrew (1.1.2-beta).

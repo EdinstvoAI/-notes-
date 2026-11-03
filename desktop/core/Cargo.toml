@@ -18,3 +18,8 @@ ring = "0.17"
 
 [dev-dependencies]
 tempfile = "3"
+
+# macOS: OpenSSL для git вшит в приложение. Иначе бинарник ищет libssl из Homebrew раннера и падает у людей
+# («Library not loaded: /opt/homebrew/*/libssl», 1.1.1-beta).
+[target.'cfg(target_os = "macos")'.dependencies]
+git2 = { version = "0.20", default-features = false, features = ["https", "vendored-openssl"] }
