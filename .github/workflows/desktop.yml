@@ -4,7 +4,7 @@ name: desktop
 
 on:
   push:
-    branches: [Dev-Windows]
+    branches: [Dev/Multi]
     paths: ["desktop/**", ".github/workflows/desktop.yml"]
   pull_request:
     paths: ["desktop/**"]

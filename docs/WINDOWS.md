@@ -14,12 +14,12 @@
 ## Где работать (иначе сломаешь чужую работу)
 
 - **На маке рядом с мак-сессией**: у неё в основной папке незакоммиченные правки. Не работай там,
-  возьми ветку в свой worktree: `git fetch origin && git worktree add ../notes-windows Dev-Windows`.
-- **На Windows или в облаке**: свой клон, `git checkout Dev-Windows`. Папку клонировать как `notes`,
+  возьми ветку в свой worktree: `git fetch origin && git worktree add ../notes-windows Dev/Multi`.
+- **На Windows или в облаке**: свой клон, `git checkout Dev/Multi`. Папку клонировать как `notes`,
   не `<notes>`: такое имя Windows не примет.
 - Код порта — только в папке `desktop/` в корне репозитория (не `windows/`: потом там же будет мак). Мак-код (`<notes>/`, `NotesSpeech/`,
   `NotesCore/`, `Scripts/`, `<notes>.xcodeproj`) не трогать. Нужна правка в общем коде — спроси Макара.
-- Коммиты — в ветку `Dev-Windows`, модуль `Windows`: `Feature Windows / Add vault picker`.
+- Коммиты — в ветку `Dev/Multi`, модуль `Windows`: `Feature Windows / Add vault picker`.
   Ничего не сливать в `Dev` и `main` и не пушить без слова Макара.
 - Задачи порта — в разделе «Задачи» ниже, что сделано — в «Журнале». TASKS.md — журнал мак-версии,
   его здесь не правим: так ветки не конфликтуют. Даты в журнале — в формате `2026-11-01`.
@@ -283,7 +283,7 @@ desktop/
   релизы не создаёт (403), поэтому `.github/workflows/release-windows.yml` — тег `win-v*` → сборка NSIS на
   windows-latest → пре-релиз «<notes> v1.0.0 beta» с `.exe` и текстом `desktop/RELEASE-BETA.md` (английский).
   Только `GITHUB_TOKEN`, без секретов — репозиторий открытый. Установщик не подписан: SmartScreen
-  «Подробнее → Выполнить в любом случае». Тег — `win-v1.0.0-beta` на `Dev-Windows`.
+  «Подробнее → Выполнить в любом случае». Тег — `win-v1.0.0-beta` на `Dev/Multi`.
 - [готово] **Мак-апдейт 03.11.2026, часть 1** (просьба Макара «новый дроп на маке — реализовать на винде»):
   календарь слоями как в Календаре Apple (`lanes`/`laneBox` в `calendar.ts`, ряд «рядом» до 45 мин, сдвиг слоя
   до 2 уровней, системный шрифт, полное название при наведении); матовые линии сферы (`gl.ts`); раздел
@@ -348,8 +348,8 @@ desktop/
 - 2026-11-01 — стек: Windows на Kotlin («мы не таури делаем а котлин все таки»). Tauri и C# отпали.
 - 2026-11-01 — передумал после того, как нашли `tauri-plugin-liquid-glass`: Windows — Tauri как проверка,
   мак потом тоже на Tauri. Папка порта — `desktop/`.
-- 2026-11-01 — ветки: `main` (релизы), `Dev-macOS`, `Dev-Windows` («Main / Dev Mac OS / Dev Windows вот так
-  делаем»). Порт — в `Dev-Windows`. Коммиты — от имени Макара (его просьба).
+- 2026-11-01 — ветки: `main` (релизы), `Dev-macOS`, `Dev/Multi` («Main / Dev Mac OS / Dev Windows вот так
+  делаем»). Порт — в `Dev/Multi`. Коммиты — от имени Макара (его просьба).
 - 2026-11-01 — каркас `desktop/`. Сборка и проверка:
   `cd desktop && cargo test -p notes-core` — ядро; `npm ci && npm run dev` — интерфейс в браузере на
   демо-хранилище (`?theme=dark`, `?open=путь.md`); `npx tauri dev` — окно Tauri (на Linux нужен
