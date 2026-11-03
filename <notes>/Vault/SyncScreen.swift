@@ -49,6 +49,7 @@ struct SyncSidebar: View {
         SidebarList(title: "синхронизация") {
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
+                    SyncGraph(history: history).padding(.bottom, 16)
                     ForEach(Array(history.commits.enumerated()), id: \.element.id) { index, commit in
                         if index == 0 || !Calendar.current.isDate(commit.date, inSameDayAs: history.commits[index - 1].date) {
                             Text(commit.date.formatted(.dateTime.day().month(.wide).locale(.app)))
@@ -72,6 +73,8 @@ struct SyncScreen: View {
     @Environment(\.pageWidth) private var pageWidth
     let model: NotesModel
     @State private var confirm: Confirm?
+    @State private var open: String?
+    @State private var preview: String?
 
     enum Confirm: Identifiable { case revert(VaultCommit), restore(VaultCommit)
         var id: String { switch self { case .revert(let c): "r" + c.id; case .restore(let c): "s" + c.id } }
@@ -89,8 +92,33 @@ struct SyncScreen: View {
                     heading(commit.message, commit.date.formatted(.dateTime.day().month(.wide).hour().minute().locale(.app))
                         + " · " + (history.hasRemote ? (pushed ? String(localized: "на github") : String(localized: "ещё не на github"))
                                                      : String(localized: "только на этом mac")))
+                    // Как в Time Machine: клик по файлу — он, каким был в этой версии, и «вернуть этот файл».
                     ForEach(commit.files, id: \.path) { file in
-                        SettingRow(title: file.path, subtitle: kind(file.kind)) { EmptyView() }
+                        // Удалённый файл смотрим и возвращаем из версии до удаления.
+                        let source = file.kind == .deleted ? older(than: commit.id) ?? commit.id : commit.id
+                        Button { toggle(file.path, commit: source, root: root) } label: {
+                            SettingRow(title: file.path, subtitle: kind(file.kind)) {
+                                if open == file.path {
+                                    Button("вернуть этот файл") {
+                                        let path = file.path, id = source
+                                        history.run(root) { try $0.restoreFile(path, from: id) }
+                                    }
+                                    .buttonStyle(WhitePillStyle())
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        if open == file.path {
+                            Text(preview ?? String(localized: "в этой версии файла нет"))
+                                .font(Martian.body.font(12))
+                                .foregroundStyle(Theme.ink.opacity(preview == nil ? 0.4 : 0.8))
+                                .textSelection(.enabled)
+                                .padding(14)
+                                .frame(width: 640, alignment: .leading)
+                                .background(RoundedRectangle(cornerRadius: 12).fill(Theme.bg.opacity(0.5)))
+                                .transition(.blurReplace)
+                        }
                     }
                     if let error = history.error {
                         Text(error).font(Martian.body.font(12)).foregroundStyle(Theme.coral).padding(.top, 12)
@@ -117,6 +145,16 @@ struct SyncScreen: View {
             .padding(.bottom, 40)
         }
         .scrollIndicators(.never)
+        .onChange(of: history.selected) {
+            open = nil
+            #if DEBUG
+            // -syncPreview YES — сразу открыть первый файл версии, для снимка.
+            if UserDefaults.standard.bool(forKey: "syncPreview"), let id = history.selected,
+               let file = history.commits.first(where: { $0.id == id })?.files.first {
+                toggle(file.path, commit: file.kind == .deleted ? older(than: id) ?? id : id, root: root)
+            }
+            #endif
+        }
         .alert(item: $confirm) { item in
             switch item {
             case .revert(let commit):
@@ -148,11 +186,56 @@ struct SyncScreen: View {
         }
     }
 
+    private func older(than id: String) -> String? {
+        let commits = model.history.commits
+        return commits.firstIndex { $0.id == id }.flatMap { $0 + 1 < commits.count ? commits[$0 + 1].id : nil }
+    }
+
+    private func toggle(_ path: String, commit: String, root: URL) {
+        guard open != path else { withAnimation(.smooth) { open = nil }; return }
+        let text = (try? GitVault.open(at: root)).flatMap { try? $0.text(of: path, at: commit) }
+        withAnimation(.smooth) { preview = text; open = path }
+    }
+
     private func kind(_ kind: FileChange.Kind) -> String {
         switch kind {
         case .added: String(localized: "новый")
         case .modified: String(localized: "изменён")
         case .deleted: String(localized: "удалён")
         }
+    }
+}
+
+// Граф правок над датами: столбик — день за последние две недели, высота — сколько версий.
+// Клик — последняя версия дня; выбранный день коралловый.
+private struct SyncGraph: View {
+    let history: SyncHistory
+
+    var body: some View {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let days = (0..<14).reversed().compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }
+        let counts = days.map { day in history.commits.filter { calendar.isDate($0.date, inSameDayAs: day) }.count }
+        let top = max(counts.max() ?? 1, 1)
+        let selected = history.commits.first { $0.id == history.selected }?.date
+        HStack(alignment: .bottom, spacing: 4) {
+            ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                let active = selected.map { calendar.isDate($0, inSameDayAs: day) } ?? false
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(active ? Theme.coral : Theme.ink.opacity(counts[index] == 0 ? 0.08 : 0.3))
+                    .frame(height: 4 + 44 * CGFloat(counts[index]) / CGFloat(top))
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if let commit = history.commits.first(where: { calendar.isDate($0.date, inSameDayAs: day) }) {
+                            history.selected = commit.id
+                        }
+                    }
+                    .help(day.formatted(.dateTime.day().month(.wide).locale(.app)) + " · \(counts[index])")
+            }
+        }
+        .frame(height: 48, alignment: .bottom)
+        .padding(.horizontal, 10)
+        .animation(.smooth(duration: 0.25), value: history.selected)
     }
 }

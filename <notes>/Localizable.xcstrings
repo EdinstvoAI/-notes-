@@ -1547,6 +1547,22 @@
         }
       }
     },
+    "в этой версии файла нет": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "this file isn't in this version"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ove datoteke nema u ovoj verziji"
+          }
+        }
+      }
+    },
     "введи код на github": {
       "localizations": {
         "en": {
@@ -1623,6 +1639,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "vrati sve na ovu verziju"
+          }
+        }
+      }
+    },
+    "вернуть этот файл": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "restore this file"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vrati ovu datoteku"
           }
         }
       }

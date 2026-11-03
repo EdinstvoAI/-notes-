@@ -59,4 +59,15 @@ struct GitHistoryTests {
         #expect(throws: GitError.self) { try v.revert(first) }
         #expect(read("а.md") == "первое правка")
     }
+
+    @Test("файл как в версии и возврат одного файла")
+    func oneFile() throws {
+        let v = try vault()
+        let old = try v.history()[2].id   // «а»
+        #expect(try v.text(of: "а.md", at: old) == "первое")
+        #expect(try v.text(of: "б.md", at: old) == nil)
+        try v.restoreFile("а.md", from: old)
+        #expect(read("а.md") == "первое")
+        #expect(read("б.md") == "второе")
+    }
 }

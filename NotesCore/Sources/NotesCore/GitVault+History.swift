@@ -72,6 +72,36 @@ extension GitVault {
         _ = try commitAll(message: "откат к версии от \(Self.stamp(Date(timeIntervalSince1970: TimeInterval(git_commit_time(commit)))))")
     }
 
+    // Файл, каким он был в версии, — как в Time Machine. nil — тогда его не было.
+    public func text(of path: String, at id: String) throws -> String? {
+        let commit = try lookup(id)
+        defer { git_commit_free(commit) }
+        var tree: OpaquePointer?
+        try check(git_commit_tree(&tree, commit))
+        defer { git_tree_free(tree) }
+        var entry: OpaquePointer?
+        guard git_tree_entry_bypath(&entry, tree, path) == 0 else { return nil }
+        defer { git_tree_entry_free(entry) }
+        var blob: OpaquePointer?
+        try check(git_blob_lookup(&blob, repo, git_tree_entry_id(entry)))
+        defer { git_blob_free(blob) }
+        let data = Data(bytes: git_blob_rawcontent(blob), count: Int(git_blob_rawsize(blob)))
+        return String(data: data, encoding: .utf8)
+    }
+
+    // Вернуть один файл как в версии; остальное не трогаем. Не было тогда — файл уходит.
+    public func restoreFile(_ path: String, from id: String) throws {
+        _ = try commitAll(message: "перед откатом")
+        let url = folder.appendingPathComponent(path)
+        if let text = try text(of: path, at: id) {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try text.write(to: url, atomically: true, encoding: .utf8)
+        } else {
+            try? FileManager.default.removeItem(at: url)
+        }
+        _ = try commitAll(message: "возвращено: \((path as NSString).deletingPathExtension)")
+    }
+
     private func reset() throws {
         var options = git_checkout_options()
         try check(git_checkout_options_init(&options, UInt32(GIT_CHECKOUT_OPTIONS_VERSION)))
