@@ -68,3 +68,16 @@ fn whisper_small_english() {
     println!("whisper: {text}");
     assert!(text.split_whitespace().count() > 5);
 }
+
+#[test]
+fn whisper_turbo_english() {
+    let Ok(archive) = std::env::var("NOTES_TEST_TURBO_ARCHIVE") else { return };
+    let dir = tempfile::tempdir().unwrap();
+    let store = ModelStore::new(dir.path());
+    store.install_from_archive(Model::WhisperTurbo, std::path::Path::new(&archive)).unwrap();
+    let m = notes_speech::load(Model::WhisperTurbo, &store.folder(Model::WhisperTurbo), "en").unwrap();
+    let samples = notes_speech::media::decode(&store.folder(Model::WhisperTurbo).join("test_wavs/0.wav")).unwrap();
+    let text = m.transcribe(&samples);
+    println!("turbo: {text}");
+    assert!(text.split_whitespace().count() > 5);
+}

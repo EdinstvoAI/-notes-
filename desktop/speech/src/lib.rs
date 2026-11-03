@@ -56,23 +56,24 @@ pub struct GigaAm {
 pub fn load(model: Model, folder: &Path, language: &str) -> Result<GigaAm, String> {
     match model {
         Model::GigaAm => GigaAm::load(folder),
-        Model::WhisperSmall => GigaAm::whisper(folder, language),
+        Model::WhisperSmall | Model::WhisperTurbo => GigaAm::whisper(folder, model.whisper_prefix().unwrap(), language),
     }
 }
 
 impl GigaAm {
     /// Whisper small через тот же sherpa-onnx. `language` — «ru», «en»… или «auto» (определить по речи).
-    pub fn whisper(folder: &Path, language: &str) -> Result<Self, String> {
+    pub fn whisper(folder: &Path, prefix: &str, language: &str) -> Result<Self, String> {
         let path = |name: &str| Some(folder.join(name).to_string_lossy().into_owned());
         let mut config = sherpa_onnx::OfflineRecognizerConfig::default();
         config.feat_config.sample_rate = SAMPLE_RATE as i32;
-        config.feat_config.feature_dim = 80;
-        config.model_config.whisper.encoder = path("small-encoder.int8.onnx");
-        config.model_config.whisper.decoder = path("small-decoder.int8.onnx");
+        // large-v3 и turbo считают 128 мел-полос, small — 80.
+        config.feat_config.feature_dim = if prefix == "turbo" { 128 } else { 80 };
+        config.model_config.whisper.encoder = path(&format!("{prefix}-encoder.int8.onnx"));
+        config.model_config.whisper.decoder = path(&format!("{prefix}-decoder.int8.onnx"));
         config.model_config.whisper.language = Some(if language == "auto" { String::new() } else { language.to_string() });
         config.model_config.whisper.task = Some("transcribe".into());
         config.model_config.whisper.tail_paddings = -1;
-        config.model_config.tokens = path("small-tokens.txt");
+        config.model_config.tokens = path(&format!("{prefix}-tokens.txt"));
         config.model_config.provider = Some("cpu".into());
         config.model_config.num_threads = std::thread::available_parallelism().map_or(2, |n| (n.get() / 2).clamp(1, 4)) as i32;
         config.decoding_method = Some("greedy_search".into());

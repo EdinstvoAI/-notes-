@@ -15,15 +15,28 @@ pub enum Model {
     /// Whisper small (int8): 99 языков, 610 МБ архив / ~360 МБ на диске.
     #[serde(rename = "whisper-small")]
     WhisperSmall,
+    /// Whisper large-v3 turbo (int8): точнее small, 564 МБ архив — как вторая модель Whisper на маке.
+    #[serde(rename = "whisper-large-v3-turbo")]
+    WhisperTurbo,
 }
 
 impl Model {
-    pub const ALL: [Model; 2] = [Model::GigaAm, Model::WhisperSmall];
+    pub const ALL: [Model; 3] = [Model::GigaAm, Model::WhisperSmall, Model::WhisperTurbo];
+
+    /// Префикс файлов Whisper в архиве sherpa-onnx («small-encoder.int8.onnx»…).
+    pub fn whisper_prefix(self) -> Option<&'static str> {
+        match self {
+            Model::WhisperSmall => Some("small"),
+            Model::WhisperTurbo => Some("turbo"),
+            Model::GigaAm => None,
+        }
+    }
 
     pub fn id(self) -> &'static str {
         match self {
             Model::GigaAm => "gigaam-v3-punct",
             Model::WhisperSmall => "whisper-small",
+            Model::WhisperTurbo => "whisper-large-v3-turbo",
         }
     }
 
@@ -35,6 +48,7 @@ impl Model {
         match self {
             Model::GigaAm => 176,
             Model::WhisperSmall => 610,
+            Model::WhisperTurbo => 564,
         }
     }
 
@@ -43,6 +57,7 @@ impl Model {
         match self {
             Model::GigaAm => "tokens.txt",
             Model::WhisperSmall => "small-tokens.txt",
+            Model::WhisperTurbo => "turbo-tokens.txt",
         }
     }
 
@@ -51,12 +66,20 @@ impl Model {
         match self {
             Model::GigaAm => &[],
             Model::WhisperSmall => &["small-encoder.int8.onnx", "small-decoder.int8.onnx", "small-tokens.txt", "test_wavs"],
+            Model::WhisperTurbo => &[],
         }
     }
 
     /// Архив с релиза k2-fsa/sherpa-onnx и его SHA-256 — те же, что на маке (`GigaAMArchive`):
     /// подменённый файл не запустится.
     fn archive(self) -> (&'static str, &'static str, &'static str) {
+        if self == Model::WhisperTurbo {
+            return (
+                "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-turbo.tar.bz2",
+                "b11acbbcd660b44a8e0df33724feb5aaa709cf65668f2823d59f656312544f22",
+                "sherpa-onnx-whisper-turbo",
+            );
+        }
         if self == Model::WhisperSmall {
             return (
                 "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small.tar.bz2",

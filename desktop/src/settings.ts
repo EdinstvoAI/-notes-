@@ -119,10 +119,11 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
         };
         const chosenModel = prefs.speechModel ?? "gigaam-v3-punct";
         return row("горячая клавиша", "нажать, сказать, нажать ещё раз: текст в буфере", `<span class="device-code">${hotkey}</span>${host.backend.inTauri ? pill("hotkey", "изменить") : ""}`)
-          + row("распознавать", "надиктовка и видео", choice("speechModel", chosenModel, [["gigaam-v3-punct", "gigaam"], ["whisper-small", "whisper"]]))
+          + row("распознавать", "надиктовка и видео", choice("speechModel", chosenModel, [["gigaam-v3-punct", "gigaam"], ["whisper-small", "small"], ["whisper-large-v3-turbo", "turbo"]]))
           + modelRow("gigaam-v3-punct", "gigaam", "русский с пунктуацией, на этом компьютере")
           + modelRow("whisper-small", "whisper small", "99 языков, на этом компьютере")
-          + (chosenModel === "whisper-small" ? row("язык речи", "для whisper", choice("language", prefs.language ?? "ru", [["auto", "сам"], ["ru", "ru"], ["en", "en"], ["uk", "uk"], ["de", "de"], ["fr", "fr"], ["es", "es"]])) : "")
+          + modelRow("whisper-large-v3-turbo", "whisper large-v3 turbo", "99 языков, точнее small, медленнее")
+          + (chosenModel.startsWith("whisper") ? row("язык речи", "для whisper", choice("language", prefs.language ?? "ru", [["auto", "сам"], ["ru", "ru"], ["en", "en"], ["uk", "uk"], ["de", "de"], ["fr", "fr"], ["es", "es"]])) : "")
           + row("спикеры", "кто что сказал в расшифровке видео · 35 мб", !host.backend.inTauri ? later("в браузере нет")
             : speakers ? granted("скачаны") : pill("speakers-get", "скачать"))
           + row("длина записи", "потом распознается сама", choice("maxMinutes", prefs.maxMinutes ?? 0, [[0, "без предела"], [5, "5 мин"], [15, "15"], [30, "30"], [60, "60"]]))
