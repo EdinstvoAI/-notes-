@@ -21,6 +21,7 @@
 - `<notes>/Onboarding/Permissions.swift` — статусы и запросы доступа к микрофону и календарю.
 - `<notes>/Onboarding/PinEntrySheet.swift` — окно пинкода поверх шага, ячейки, клавиши.
 - `<notes>/Onboarding/UnlockStep.swift` — вход: пинкод, Touch ID, пауза после ошибок, «забыл пинкод».
+- `<notes>/MCP/MCPScreen.swift` — раздел MCP: подключение Claude Code / Codex / Cursor, промты и скилл, закрытые папки, только чтение, журнал обращений.
 - `<notes>/Vault/SyncScreen.swift` — раздел «синхронизация»: версии из git по дням, файлы версии, отмена правок и откат ко всей версии.
 - `<notes>/Notes/NotesModel.swift` — состояние главного экрана: выбор, автосохранение, правки снаружи, поиск, самопроверка.
 - `<notes>/Notes/FilePreview.swift` — просмотр файлов хранилища (PDF, Word, фото, видео) встроенным Quick Look и «открыть в программе».
