@@ -217,12 +217,20 @@ private struct TopBar: View {
             case .hybrid: Self.hybridWidth(labels[selectedTitle])
             case .icons: 4 * 34 + 3 * 6 + 22
             }
-            HeaderGroup(width: sections) {
-                sectionButtons(fit)
-                    .offset(x: 11)
+            // Капсула по ширине самих кнопок: посчитанная ширина расходилась с ними, и шестерёнка
+            // налезала на край (снимок Макара, 03.11.2026). Счёт `sections` — только для выбора вида.
+            sectionButtons(fit)
+                .fixedSize()
+                .padding(.horizontal, 11)
+                .frame(height: 48)
+                .background {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(Theme.sheet.opacity(0.2))
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Theme.edge.opacity(0.6), lineWidth: 1))
+                }
                 .animation(.smooth(duration: 0.25), value: hovered)
-            }
-            .padding(.trailing, 16)
+                .padding(.trailing, 16)
 
             let left = 449 + sections + 16
             // По ширине текста, как в кадре. Не влезает целиком — остаётся одна иконка, без обрезанного

@@ -234,9 +234,11 @@ private struct DictationPage: View {
     }
 }
 
-// Общие: тема, запуск при входе, текст заметок.
+// Общие: тема, язык, запуск при входе, текст заметок.
 private struct GeneralPage: View {
     @State private var theme = AppSettings.theme
+    @State private var language = AppSettings.interfaceLanguage
+    private let startLanguage = AppSettings.interfaceLanguage
     @State private var login = AppSettings.launchAtLogin
     @State private var size = AppSettings.textSize
     @State private var spell = AppSettings.spellCheck
@@ -245,6 +247,10 @@ private struct GeneralPage: View {
     var body: some View {
         ChoiceRow(title: "тема", value: theme.rawValue, choices: AppSettings.Theme.allCases.map { ($0, $0.rawValue) }) {
             AppSettings.theme = $0; theme = $0
+        }
+        ChoiceRow(title: "язык", subtitle: language == startLanguage ? nil : String(localized: "после перезапуска"),
+                  value: language.rawValue, choices: AppSettings.InterfaceLanguage.allCases.map { ($0, $0.rawValue) }) {
+            AppSettings.interfaceLanguage = $0; language = $0
         }
         SwitchRow(title: "открывать при входе в mac", subtitle: "чтобы хоткей надиктовки работал сразу", isOn: $login) {
             AppSettings.launchAtLogin = $0; login = AppSettings.launchAtLogin

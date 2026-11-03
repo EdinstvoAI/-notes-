@@ -22,6 +22,36 @@ enum AppSettings {
         }
     }
 
+    // Язык интерфейса — свой у приложения, поверх системного (03.11.2026). Пишем AppleLanguages только
+    // в настройки приложения; строки берутся при запуске, поэтому применяется после перезапуска.
+    enum InterfaceLanguage: String, CaseIterable {
+        case system = "как в системе", ru = "Русский", en = "English", sr = "Srpski"
+
+        var code: String? {
+            switch self {
+            case .system: nil
+            case .ru: "ru"
+            case .en: "en"
+            case .sr: "sr-Latn"
+            }
+        }
+    }
+
+    static var interfaceLanguage: InterfaceLanguage {
+        get {
+            let own = UserDefaults.standard.persistentDomain(forName: Bundle.main.bundleIdentifier ?? "")?["AppleLanguages"]
+            let code = (own as? [String])?.first
+            return InterfaceLanguage.allCases.first { $0.code != nil && $0.code == code } ?? .system
+        }
+        set {
+            if let code = newValue.code {
+                UserDefaults.standard.set([code], forKey: "AppleLanguages")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+            }
+        }
+    }
+
     // Запуск при входе в Mac — системный список «Объекты входа».
     static var launchAtLogin: Bool {
         get { SMAppService.mainApp.status == .enabled }

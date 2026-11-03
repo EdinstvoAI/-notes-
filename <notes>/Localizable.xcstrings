@@ -386,6 +386,12 @@
         }
       }
     },
+    "English": {
+      "shouldTranslate": false
+    },
+    "Srpski": {
+      "shouldTranslate": false
+    },
     "Whisper small (466 мб)": {
       "localizations": {
         "en": {
@@ -1057,6 +1063,9 @@
           }
         }
       }
+    },
+    "Русский": {
+      "shouldTranslate": false
     },
     "Скачать": {
       "localizations": {
@@ -4498,6 +4507,22 @@
         }
       }
     },
+    "после перезапуска": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "after restart"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "posle ponovnog pokretanja"
+          }
+        }
+      }
+    },
     "последний коммит": {
       "localizations": {
         "en": {
@@ -5886,6 +5911,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "ovaj mac ne podržava apple intelligence"
+          }
+        }
+      }
+    },
+    "язык": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "language"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "jezik"
           }
         }
       }

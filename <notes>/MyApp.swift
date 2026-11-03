@@ -48,6 +48,16 @@ import SwiftUI
                     if let path = UserDefaults.standard.string(forKey: "dictationTestFile") {
                         await DictationController.shared.debugRun(file: URL(fileURLWithPath: path))
                     }
+                    // Снимок шапки на нужной ширине: окно запоминает размер, а мышью скрипт тянуть не может.
+                    let width = UserDefaults.standard.double(forKey: "windowWidth")
+                    if width > 0 {
+                        try? await Task.sleep(for: .seconds(1))
+                        for window in NSApp.windows where window.isVisible && window.frame.width > 700 {
+                            var frame = window.frame
+                            frame.size.width = width
+                            window.setFrame(frame, display: true)
+                        }
+                    }
                     #endif
                 }
         }
