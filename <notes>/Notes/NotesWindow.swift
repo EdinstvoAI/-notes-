@@ -265,7 +265,7 @@ private struct TopBar: View {
                     .animation(.smooth(duration: 0.25), value: fits)
                     .contentShape(Rectangle())
                     .onHover { syncHovered = $0 }
-                    .hoverHint(sync.status(now: .now), when: !fits && syncHovered)
+                    .hoverHint(sync.errorText ?? sync.status(now: .now), when: (!fits || sync.errorText != nil) && syncHovered)
                 }
                 .padding(.trailing, 17)
                 .transition(.opacity)

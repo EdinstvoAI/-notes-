@@ -117,6 +117,17 @@ struct SyncScreen: View {
             SyncBoard(model: model)
         } else if let commit = history.commits.first(where: { $0.id == history.selected }) {
             page {
+                // Почему «не отправилось» — раньше причину не было видно нигде (03.11.2026, «гит почини»).
+                if let problem = SyncController.shared.errorText {
+                    HStack(spacing: 12) {
+                        Text(problem).font(Martian.body.font(12)).foregroundStyle(Theme.coral).lineLimit(2)
+                        Button("отправить сейчас") {
+                            Task { SyncController.shared.clearError(); _ = await SyncController.shared.pushNow() }
+                        }
+                        .buttonStyle(WhitePillStyle())
+                    }
+                    .padding(.bottom, 24)
+                }
                 heading(commit.message, VersionDetails.when(commit, history))
                 VersionDetails(model: model, commit: commit, width: 640)
             }
