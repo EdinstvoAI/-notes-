@@ -8,6 +8,8 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [
         .library(name: "NotesCore", targets: ["NotesCore"]),
+        // MCP-сервер для нейронок: `notes-mcp --vault <папка>`, stdio, без сети.
+        .executable(name: "notes-mcp", targets: ["notes-mcp"]),
     ],
     dependencies: [
         // libgit2 собирается из исходников (MIT + исключения libgit2), без системных зависимостей.
@@ -15,6 +17,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "NotesCore", dependencies: [.product(name: "libgit2", package: "libgit2")]),
+        .executableTarget(name: "notes-mcp", dependencies: ["NotesCore"]),
         .testTarget(name: "NotesCoreTests", dependencies: ["NotesCore"]),
     ],
     swiftLanguageModes: [.v5]
