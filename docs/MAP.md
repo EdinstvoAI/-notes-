@@ -73,6 +73,7 @@
 - `NotesCore/Tests/NotesCoreTests/PasswordSafeTests.swift` — тесты сейфа: чужой пароль, порча файла, векторы TOTP.
 - `<notes>/Safe/MenuBarPanel.swift` — значок в строке меню: сейф под рукой (найти, скопировать пароль или код), открыть окно, надиктовать.
 - `<notes>/Safe/SafeScreen.swift` — раздел «пароли»: вход мастер-паролем, пароли, коды 2FA, секреты; буфер стирается через минуту.
+- `<notes>/Safe/SafeKeys.swift` — ключи сейфа на этом Mac под ключом Secure Enclave: открываются только Touch ID или паролем Mac.
 - `NotesCore/Sources/NotesCore/MCPServer.swift` — локальный MCP-сервер для нейронок: поиск, чтение, новые заметки и задачи, только внутри хранилища.
 - `NotesCore/Sources/notes-mcp/main.swift` — исполняемый `notes-mcp --vault <папка>`: stdio-обёртка над MCPServer.
 - `NotesCore/Tests/NotesCoreTests/MCPServerTests.swift` — тесты MCP: рукопожатие, инструменты, выход за хранилище.
