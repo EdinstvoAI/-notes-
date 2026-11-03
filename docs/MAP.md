@@ -64,6 +64,9 @@
 - `NotesCore/Sources/NotesCore/NoteSections.swift` — разделы от Apple Intelligence в заметке: «## Кратко» и «## Задачи».
 - `NotesCore/Sources/NotesCore/NoteTasks.swift` — задачи из строк заметок: разбор, отметка, группы, план синхронизации с календарём.
 - `NotesCore/Sources/NotesCore/Transcript.swift` — расшифровка: куски с временем, .srt, заметка Markdown.
+- `NotesCore/Sources/NotesCore/MCPServer.swift` — локальный MCP-сервер для нейронок: поиск, чтение, новые заметки и задачи, только внутри хранилища.
+- `NotesCore/Sources/notes-mcp/main.swift` — исполняемый `notes-mcp --vault <папка>`: stdio-обёртка над MCPServer.
+- `NotesCore/Tests/NotesCoreTests/MCPServerTests.swift` — тесты MCP: рукопожатие, инструменты, выход за хранилище.
 - `NotesCore/Sources/NotesCore/Templates.swift` — шаблоны из папки «шаблоны» с подстановками {{дата}}, {{время}}, {{название}} и заметка на каждый день в «дневник».
 - `NotesCore/Sources/NotesCore/SearchQuery.swift` — запрос общего поиска: все слова без регистра и ё/е, упоминание в расшифровке.
 - `NotesCore/Sources/NotesCore/SemanticIndex.swift` — поиск по смыслу: куски заметок, векторы встроенной модели Apple. С 31.10.2026 в приложении не подключён, ждёт модели получше.
