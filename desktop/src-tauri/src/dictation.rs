@@ -29,7 +29,7 @@ pub enum Event {
 pub struct Dictation {
     recording: Mutex<Option<Recording>>,
     busy: Mutex<bool>,
-    model: Mutex<Option<GigaAm>>,
+    model: Mutex<Option<(String, GigaAm)>>,
 }
 
 struct Recording {
@@ -38,6 +38,13 @@ struct Recording {
     samples: Arc<Mutex<Vec<f32>>>,
     rate: Arc<Mutex<u32>>,
     started: std::time::Instant,
+}
+
+/// Выбранная модель (настройки → надиктовка) и язык для Whisper.
+pub fn chosen(app: &AppHandle) -> (Model, String) {
+    let model = crate::platform::settings::pref_str(app, "speechModel").and_then(|id| Model::from_id(&id)).unwrap_or(Model::GigaAm);
+    let lang = crate::platform::settings::pref_str(app, "language").unwrap_or_else(|| "ru".into());
+    (model, lang)
 }
 
 pub fn store(app: &AppHandle) -> ModelStore {
@@ -100,7 +107,7 @@ pub fn toggle(app: &AppHandle) {
     match running {
         Some(rec) => finish(app.clone(), rec),
         None => {
-            if !store(app).is_installed(Model::GigaAm) {
+            if !store(app).is_installed(chosen(app).0) {
                 emit(app, Event::Error { message: "модель не скачана: настройки → надиктовка".into() });
                 return;
             }
@@ -194,10 +201,13 @@ pub fn recognize(app: AppHandle, samples: Vec<f32>) {
         let state = app.state::<Dictation>();
         let result = (|| -> Result<String, String> {
             let mut model = state.model.lock().unwrap();
-            if model.is_none() {
-                *model = Some(GigaAm::load(&store(&app).folder(Model::GigaAm))?);
+            let (which, lang) = chosen(&app);
+            let key = format!("{}:{lang}", which.id());
+            // Модель или язык сменили в настройках — перезагружаем.
+            if model.as_ref().map(|(k, _)| k != &key).unwrap_or(true) {
+                *model = Some((key, notes_speech::load(which, &store(&app).folder(which), &lang)?));
             }
-            Ok(model.as_ref().unwrap().transcribe(&samples))
+            Ok(model.as_ref().unwrap().1.transcribe(&samples))
         })();
         *state.busy.lock().unwrap() = false;
         match result {

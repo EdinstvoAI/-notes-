@@ -27,6 +27,10 @@ export interface Prefs {
   paste?: boolean;
   /** Хоткей надиктовки, например «ctrl+alt+space». */
   hotkey?: string;
+  /** Модель распознавания: «gigaam-v3-punct» или «whisper-small». */
+  speechModel?: string;
+  /** Язык речи для Whisper: «auto», «ru», «en»… */
+  language?: string;
 }
 
 export interface GithubStatus { signed_in: boolean; remote: string | null; unpushed: boolean }

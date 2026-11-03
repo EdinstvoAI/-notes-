@@ -2,7 +2,7 @@
 //! расшифровка в данных приложения (не в хранилище); в хранилище — только когда человек нажал
 //! «сохранить как заметку» (`расшифровки/название.md`).
 
-use notes_speech::{media, GigaAm, Model, Transcript};
+use notes_speech::{media, Transcript};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
@@ -22,6 +22,9 @@ pub struct Item {
     /// Папка расшифровок (как на маке) — только в списке приложения; в хранилище — «расшифровки/папка/».
     #[serde(default)]
     pub folder: Option<String>,
+    /// Какой моделью расшифровано — в шапку заметки.
+    #[serde(default)]
+    pub model: Option<String>,
 }
 
 fn dir(app: &AppHandle) -> PathBuf {
@@ -75,6 +78,7 @@ pub fn add(app: AppHandle, path: String, added: String) -> Result<Item, String> 
         words: None,
         error: None,
         folder: None,
+        model: None,
     };
     update(&app, item.clone());
     let mut working = item.clone();
@@ -83,10 +87,12 @@ pub fn add(app: AppHandle, path: String, added: String) -> Result<Item, String> 
             let samples = media::decode(&p)?;
             working.duration = samples.len() as f64 / notes_speech::SAMPLE_RATE as f64;
             let store = crate::dictation::store(&app);
-            if !store.is_installed(Model::GigaAm) {
+            let (which, lang) = crate::dictation::chosen(&app);
+            working.model = Some(which.id().to_string());
+            if !store.is_installed(which) {
                 return Err("модель не скачана: настройки → надиктовка".into());
             }
-            let model = GigaAm::load(&store.folder(Model::GigaAm))?;
+            let model = notes_speech::load(which, &store.folder(which), &lang)?;
             let mut t = Transcript { segments: model.segments(&samples), ..Default::default() };
             // Спикеры — если их модели скачаны (настройки → надиктовка), как на маке.
             let speakers = notes_speech::speakers::Speakers::new(&store.root);

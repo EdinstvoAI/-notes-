@@ -56,6 +56,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   type ModelInfo = { id: string; installed: boolean; download_mb: number };
   let models: ModelInfo[] = host.backend.inTauri ? await invoke<ModelInfo[]>("models") : [];
   let downloading: number | null = null;
+  let downloadingId = "";
   let recording = false;
   let autostartOn = host.backend.inTauri ? await invoke<boolean>("autostart") : false;
   let speakers = host.backend.inTauri ? await invoke<boolean>("speakers_installed") : false;
@@ -104,15 +105,21 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
           + note(isMac ? "" : "системный календарь windows закрыт для приложений не из store — поэтому .ics");
       case "dictation": {
         const hotkey = recording ? "нажмите сочетание…" : (prefs.hotkey ?? (isMac ? "alt+space" : "ctrl+alt+space")).split("+").join(" + ");
-        const gigaam = models.find((m) => m.id === "gigaam-v3-punct");
-        const status = !host.backend.inTauri ? later("в браузере нет")
-          : downloading !== null ? `<span class="later">${Math.round(downloading * 100)}%</span>`
-          : gigaam?.installed ? `${granted("скачана")}${pill("model-remove", "удалить")}` : pill("model-get", `скачать ${gigaam?.download_mb ?? 176} мб`);
+        const modelRow = (id: string, title: string, sub: string) => {
+          const m = models.find((x) => x.id === id);
+          const status = !host.backend.inTauri ? later("в браузере нет")
+            : downloading !== null && downloadingId === id ? `<span class="later">${Math.round(downloading * 100)}%</span>`
+            : m?.installed ? `${granted("скачана")}${pill(`model-remove:${id}`, "удалить")}` : pill(`model-get:${id}`, `скачать ${m?.download_mb ?? ""} мб`);
+          return row(title, sub, status);
+        };
+        const chosenModel = prefs.speechModel ?? "gigaam-v3-punct";
         return row("горячая клавиша", "нажать, сказать, нажать ещё раз: текст в буфере", `<span class="device-code">${hotkey}</span>${host.backend.inTauri ? pill("hotkey", "изменить") : ""}`)
-          + row("gigaam", "русский с пунктуацией, распознаёт на этом компьютере", status)
+          + row("распознавать", "надиктовка и видео", choice("speechModel", chosenModel, [["gigaam-v3-punct", "gigaam"], ["whisper-small", "whisper"]]))
+          + modelRow("gigaam-v3-punct", "gigaam", "русский с пунктуацией, на этом компьютере")
+          + modelRow("whisper-small", "whisper small", "99 языков, на этом компьютере")
+          + (chosenModel === "whisper-small" ? row("язык речи", "для whisper", choice("language", prefs.language ?? "ru", [["auto", "сам"], ["ru", "ru"], ["en", "en"], ["uk", "uk"], ["de", "de"], ["fr", "fr"], ["es", "es"]])) : "")
           + row("спикеры", "кто что сказал в расшифровке видео · 35 мб", !host.backend.inTauri ? later("в браузере нет")
             : speakers ? granted("скачаны") : pill("speakers-get", "скачать"))
-          + row("whisper", "99 языков", later())
           + row("вставлять в поле", "ctrl+v за вас в поле, где курсор; иначе — только буфер", host.backend.inTauri ? toggle("paste", prefs.paste ?? false) : later())
           + note("модели не входят в приложение: качаются один раз и проверяются по контрольной сумме");
       }
@@ -168,8 +175,9 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       const current = prefs[key] ?? (key === "spellcheck");
       await save({ ...prefs, [key]: !current });
     } else if (b.dataset.choice) {
-      const key = b.dataset.choice as "theme" | "textSize" | "commitMinutes";
-      await save({ ...prefs, [key]: key === "theme" ? b.dataset.value : Number(b.dataset.value) });
+      const key = b.dataset.choice as "theme" | "textSize" | "commitMinutes" | "speechModel" | "language";
+      const textual = key === "theme" || key === "speechModel" || key === "language";
+      await save({ ...prefs, [key]: textual ? b.dataset.value : Number(b.dataset.value) });
     } else if (b.dataset.set === "git") {
       b.textContent = "включаем…";
       await host.backend.gitEnable();
@@ -183,16 +191,16 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       render();
       const note = root.querySelector(".settings-rows");
       note?.insertAdjacentHTML("beforeend", `<p class="setting-note">${message ? esc(message) : "менять было нечего"}</p>`);
-    } else if (b.dataset.set === "model-get") {
+    } else if (b.dataset.set?.startsWith("model-get")) {
+      downloadingId = b.dataset.set.split(":")[1] ?? "gigaam-v3-punct";
       const { listen } = await import("@tauri-apps/api/event");
       downloading = 0;
       render();
       const stop = await listen<number>("model-progress", (e) => {
-        downloading = e.payload;
-        const s = root.querySelector(".setting:nth-child(2) .later");
-        if (s) s.textContent = `${Math.round(e.payload * 100)}%`;
+        // Перерисовка раз в процент, не на каждый пакет.
+        if (Math.round(e.payload * 100) !== Math.round((downloading ?? 0) * 100)) { downloading = e.payload; render(); }
       });
-      try { await invoke("model_download"); } catch (error) {
+      try { await invoke("model_download", { id: downloadingId }); } catch (error) {
         root.querySelector(".settings-rows")?.insertAdjacentHTML("beforeend", note(`не скачалось: ${esc(String(error))}`));
       }
       stop();
@@ -204,9 +212,8 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       downloading = 0;
       render();
       const stop = await listen<number>("meaning-progress", (e) => {
-        downloading = e.payload;
-        const s = root.querySelector(".setting:nth-child(2) .later");
-        if (s) s.textContent = `${Math.round(e.payload * 100)}%`;
+        // Перерисовка раз в процент, не на каждый пакет.
+        if (Math.round(e.payload * 100) !== Math.round((downloading ?? 0) * 100)) { downloading = e.payload; render(); }
       });
       try { await invoke("meaning_download"); } catch (error) {
         root.querySelector(".settings-rows")?.insertAdjacentHTML("beforeend", note(`не скачалось: ${esc(String(error))}`));
@@ -241,8 +248,8 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       }
       speakers = await invoke<boolean>("speakers_installed");
       render();
-    } else if (b.dataset.set === "model-remove") {
-      await invoke("model_remove");
+    } else if (b.dataset.set?.startsWith("model-remove")) {
+      await invoke("model_remove", { id: b.dataset.set.split(":")[1] });
       models = await invoke<ModelInfo[]>("models");
       render();
     } else if (b.dataset.set === "pin-on") {

@@ -53,3 +53,18 @@ fn speakers_on_real_models() {
     println!("turns: {turns:?}");
     assert!(!turns.is_empty());
 }
+
+#[test]
+fn whisper_small_english() {
+    let Ok(archive) = std::env::var("NOTES_TEST_WHISPER_ARCHIVE") else { return };
+    let dir = tempfile::tempdir().unwrap();
+    let store = ModelStore::new(dir.path());
+    store.install_from_archive(Model::WhisperSmall, std::path::Path::new(&archive)).unwrap();
+    assert!(store.is_installed(Model::WhisperSmall));
+    assert!(!store.folder(Model::WhisperSmall).join("small-encoder.onnx").exists(), "fp32 skipped");
+    let m = notes_speech::load(Model::WhisperSmall, &store.folder(Model::WhisperSmall), "en").unwrap();
+    let samples = notes_speech::media::decode(&store.folder(Model::WhisperSmall).join("test_wavs/0.wav")).unwrap();
+    let text = m.transcribe(&samples);
+    println!("whisper: {text}");
+    assert!(text.split_whitespace().count() > 5);
+}

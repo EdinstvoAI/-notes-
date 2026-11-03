@@ -486,19 +486,21 @@ fn models(app: tauri::AppHandle) -> Vec<ModelStatus> {
 
 /// Скачать модель; ход — событием `model-progress` (0…1).
 #[tauri::command]
-async fn model_download(app: tauri::AppHandle) -> Result<(), String> {
+async fn model_download(id: Option<String>, app: tauri::AppHandle) -> Result<(), String> {
     let store = dictation::store(&app);
     let handle = app.clone();
+    let model = id.as_deref().and_then(notes_speech::Model::from_id).unwrap_or(notes_speech::Model::GigaAm);
     tauri::async_runtime::spawn_blocking(move || {
-        store.download(notes_speech::Model::GigaAm, |p| { let _ = handle.emit("model-progress", p); })
+        store.download(model, |p| { let _ = handle.emit("model-progress", p); })
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn model_remove(app: tauri::AppHandle) -> Result<(), String> {
-    dictation::store(&app).remove(notes_speech::Model::GigaAm).map_err(|e| e.to_string())
+fn model_remove(id: Option<String>, app: tauri::AppHandle) -> Result<(), String> {
+    let model = id.as_deref().and_then(notes_speech::Model::from_id).unwrap_or(notes_speech::Model::GigaAm);
+    dictation::store(&app).remove(model).map_err(|e| e.to_string())
 }
 
 /// Самопроверка без микрофона, как `-dictationTestFile` на маке: WAV 16 кГц моно проходит весь путь
@@ -650,7 +652,7 @@ fn video_save_note(id: String, app: tauri::AppHandle, state: State<AppState>) ->
         let dir = item.folder.as_ref().map_or("расшифровки".to_string(), |f| format!("расшифровки/{f}"));
         let path = v.create_note(&dir, &item.title).map_err(|e| e.to_string())?;
         let title = path.rsplit('/').next().unwrap_or(&path).trim_end_matches(".md").to_string();
-        v.write(&path, &t.note(&title, &item.source, &item.added, item.duration, "gigaam-v3-punct")).map_err(|e| e.to_string())?;
+        v.write(&path, &t.note(&title, &item.source, &item.added, item.duration, item.model.as_deref().unwrap_or("gigaam-v3-punct"))).map_err(|e| e.to_string())?;
         Ok(path)
     })
 }
