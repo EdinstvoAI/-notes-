@@ -113,9 +113,10 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
       const item = await invoke<{ id: string }>("video_add", { path: wav, added: "2026-11-02 12:00" });
       for (let i = 0; i < 120 && !done; i++) await pause(500);
       stopV();
+      await invoke("video_folder", { id: item.id, folder: "созвоны" });
       const note = await invoke<string>("video_save_note", { id: item.id });
       const text = await backend.read(note);
-      await check(`transcript note ${note}`, note === "расшифровки/example.md" && /\*\*00:00( спикер 1:)?\*\* /.test(text) && text.includes("модель: gigaam") && (!seg || text.includes("спикер 1:")));
+      await check(`transcript note ${note}`, note === "расшифровки/созвоны/example.md" && /\*\*00:00( спикер 1:)?\*\* /.test(text) && text.includes("модель: gigaam") && (!seg || text.includes("спикер 1:")));
     }
     await pause(300);
   } catch (e) {

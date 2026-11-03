@@ -632,6 +632,11 @@ fn selftest_install_speakers(segmentation: String, embedding: String, app: tauri
 }
 
 #[tauri::command]
+fn video_folder(id: String, folder: Option<String>, app: tauri::AppHandle) {
+    video::set_folder(&app, &id, folder);
+}
+
+#[tauri::command]
 fn video_delete(id: String, app: tauri::AppHandle) {
     video::delete(&app, &id);
 }
@@ -642,7 +647,8 @@ fn video_save_note(id: String, app: tauri::AppHandle, state: State<AppState>) ->
     let item = video::list(&app).into_iter().find(|i| i.id == id).ok_or("нет расшифровки")?;
     let t = video::get(&app, &id).ok_or("нет расшифровки")?;
     with_vault(&state, |v| {
-        let path = v.create_note("расшифровки", &item.title).map_err(|e| e.to_string())?;
+        let dir = item.folder.as_ref().map_or("расшифровки".to_string(), |f| format!("расшифровки/{f}"));
+        let path = v.create_note(&dir, &item.title).map_err(|e| e.to_string())?;
         let title = path.rsplit('/').next().unwrap_or(&path).trim_end_matches(".md").to_string();
         v.write(&path, &t.note(&title, &item.source, &item.added, item.duration, "gigaam-v3-punct")).map_err(|e| e.to_string())?;
         Ok(path)
@@ -737,7 +743,7 @@ pub fn run() {
             dictation_toggle, models, model_download, model_remove, dictation_test,
             meaning_installed, meaning_download, meaning_search, selftest_install_e5,
             video_list, video_add, video_get, video_rename_speaker, video_delete, video_save_note, video_srt,
-            video_mark, autostart, set_autostart, set_hotkey, speakers_installed, speakers_download, selftest_install_speakers
+            video_mark, video_folder, autostart, set_autostart, set_hotkey, speakers_installed, speakers_download, selftest_install_speakers
         ])
         .run(tauri::generate_context!())
         .expect("error while running <notes>");

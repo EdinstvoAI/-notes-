@@ -8,7 +8,7 @@ import { icon } from "./icons";
 import { showMenu } from "./menu";
 import { DROPZONE, shader } from "./gl";
 
-interface Item { id: string; title: string; source: string; added: string; duration: number; words: number | null; error?: string | null }
+interface Item { id: string; title: string; source: string; added: string; duration: number; words: number | null; error?: string | null; folder?: string | null }
 interface Segment { start: number; end: number; text: string; speaker?: number }
 interface Transcript { segments: Segment[]; names: Record<string, string> }
 
@@ -60,10 +60,18 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
   }
   let items: Item[] = [];
 
+  // Папки расшифровок, как на маке: щелчок по папке — только её расшифровки, правый клик по расшифровке —
+  // «в папку». Сохранённая заметка ложится в «расшифровки/папка/».
+  let folderFilter: string | null = null;
   const renderSidebar = () => {
-    sidebar.innerHTML = `<button class="row${open === null ? " selected" : ""}" style="padding-left:8px" data-vid="">${icon("video")}<span>все расшифровки</span><small class="count">${items.length}</small></button>`
-      + items.map((i) => `<button class="row${open === i.id ? " selected" : ""}" style="padding-left:26px" data-vid="${i.id}">
-          <span>${esc(i.title)}</span><small class="count">${i.error ? "!" : i.words === null ? "…" : ""}</small></button>`).join("");
+    const folders = [...new Set(items.map((i) => i.folder).filter((f): f is string => !!f))].sort();
+    const row = (i: Item) => `<button class="row${open === i.id ? " selected" : ""}" style="padding-left:26px" data-vid="${i.id}">
+      <span>${esc(i.title)}</span><small class="count">${i.error ? "!" : i.words === null ? "…" : ""}</small></button>`;
+    const shown = folderFilter ? items.filter((i) => i.folder === folderFilter) : items;
+    sidebar.innerHTML = `<button class="row${open === null && !folderFilter ? " selected" : ""}" style="padding-left:8px" data-vid="">${icon("video")}<span>все расшифровки</span><small class="count">${items.length}</small></button>`
+      + folders.map((f) => `<button class="row${folderFilter === f ? " selected" : ""}" style="padding-left:8px" data-vfolder="${esc(f)}">${icon("folder")}<span>${esc(f)}</span></button>`).join("")
+      + `<button class="row" style="padding-left:8px;opacity:.5" data-vnew>${icon("plus")}<span>новая папка</span></button>`
+      + shown.map(row).join("");
   };
 
   const dropZone = () => `<div class="video">
@@ -159,10 +167,43 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
     showMenu(e.clientX, e.clientY, [...known.map((s) => ({ label: t.names[s] ?? `спикер ${s + 1}`, run: mark(s) })), { label: "новый спикер", run: mark(next) }]);
   });
   sidebar.addEventListener("click", (e) => {
-    const b = (e.target as HTMLElement).closest<HTMLElement>("[data-vid]");
-    if (!b || !root.isConnected) return;
+    if (!root.isConnected) return;
+    const el = e.target as HTMLElement;
+    const f = el.closest<HTMLElement>("[data-vfolder]");
+    if (f) { folderFilter = folderFilter === f.dataset.vfolder ? null : f.dataset.vfolder!; renderSidebar(); return; }
+    if (el.closest("[data-vnew]")) {
+      // Имя вписывается прямо в строку (window.prompt в WebView есть не везде).
+      const row = el.closest<HTMLElement>("[data-vnew]")!;
+      const input = Object.assign(document.createElement("input"), { className: "new-folder", placeholder: "новая папка" });
+      row.replaceChildren(input);
+      input.focus();
+      const item = items.find((i) => i.id === open);
+      const done = async () => {
+        const name = input.value.trim();
+        if (name && item) await invoke("video_folder", { id: item.id, folder: name });
+        if (name) folderFilter = name;
+        await render();
+      };
+      input.addEventListener("keydown", (k) => { if (k.key === "Enter") input.blur(); if (k.key === "Escape") { input.value = ""; input.blur(); } });
+      input.addEventListener("blur", () => void done(), { once: true });
+      return;
+    }
+    const b = el.closest<HTMLElement>("[data-vid]");
+    if (!b) return;
     open = b.dataset.vid || null;
+    if (!open) folderFilter = null;
     void render();
+  });
+  sidebar.addEventListener("contextmenu", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>("[data-vid]");
+    const id = b?.dataset.vid;
+    if (!id || !root.isConnected) return;
+    e.preventDefault();
+    const folders = [...new Set(items.map((i) => i.folder).filter((f): f is string => !!f))].sort();
+    showMenu(e.clientX, e.clientY, [
+      ...folders.map((f) => ({ label: `в папку «${f}»`, run: async () => { await invoke("video_folder", { id, folder: f }); await render(); } })),
+      { label: "вне папок", run: async () => { await invoke("video_folder", { id, folder: null }); await render(); } },
+    ]);
   });
   const stop = await listen<Item>("video", () => { if (root.isConnected) void render(); else stop(); });
   await render();

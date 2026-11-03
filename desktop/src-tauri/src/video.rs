@@ -19,6 +19,9 @@ pub struct Item {
     pub words: Option<usize>,
     #[serde(default)]
     pub error: Option<String>,
+    /// Папка расшифровок (как на маке) — только в списке приложения; в хранилище — «расшифровки/папка/».
+    #[serde(default)]
+    pub folder: Option<String>,
 }
 
 fn dir(app: &AppHandle) -> PathBuf {
@@ -71,6 +74,7 @@ pub fn add(app: AppHandle, path: String, added: String) -> Result<Item, String> 
         duration: 0.0,
         words: None,
         error: None,
+        folder: None,
     };
     update(&app, item.clone());
     let mut working = item.clone();
@@ -104,4 +108,12 @@ pub fn add(app: AppHandle, path: String, added: String) -> Result<Item, String> 
         let _ = app.emit("video", working);
     });
     Ok(item)
+}
+
+pub fn set_folder(app: &AppHandle, id: &str, folder: Option<String>) {
+    let mut items = list(app);
+    if let Some(i) = items.iter_mut().find(|i| i.id == id) {
+        i.folder = folder.filter(|f| !f.trim().is_empty());
+    }
+    save_list(app, &items);
 }
