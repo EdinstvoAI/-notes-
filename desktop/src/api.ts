@@ -33,6 +33,10 @@ export interface Prefs {
   language?: string;
   /** Язык интерфейса: «system», «ru», «en», «sr». */
   uiLanguage?: string;
+  /** Предел длины надиктовки в минутах; 0 — без предела. */
+  maxMinutes?: number;
+  /** Как часто забирать и отправлять на GitHub, минуты. */
+  pushMinutes?: number;
 }
 
 export interface GithubStatus { signed_in: boolean; remote: string | null; unpushed: boolean }

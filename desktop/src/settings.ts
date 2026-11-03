@@ -86,6 +86,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
           + row("история в git", git.repo ? `${git.commits} ${plural(git.commits, "версия", "версии", "версий")} · любую правку можно откатить` : "версии сохраняются по расписанию",
             git.repo ? granted("включено") : pill("git", "включить"))
           + (git.repo ? row("сохранять версию", "", choice("commitMinutes", prefs.commitMinutes ?? 60, [[15, "15 мин"], [30, "30 мин"], [60, "час"], [180, "3 ч"]]))
+            + (gh.signed_in ? row("отправлять на github", "забирать правки с другого компьютера и отправлять свои", choice("pushMinutes", prefs.pushMinutes ?? 60, [[60, "час"], [180, "3 ч"], [1440, "день"], [10080, "неделя"]])) : "")
             + row("последняя версия", ago(git.last_commit) + (git.pending ? ` · несохранённых файлов: ${git.pending}` : ""), pill("commit", "сохранить сейчас")) : "")
           + githubRows()
           + note("папка та же, что на маке: заметки — обычные файлы .md, окончания строк не меняются");
@@ -121,6 +122,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
           + (chosenModel === "whisper-small" ? row("язык речи", "для whisper", choice("language", prefs.language ?? "ru", [["auto", "сам"], ["ru", "ru"], ["en", "en"], ["uk", "uk"], ["de", "de"], ["fr", "fr"], ["es", "es"]])) : "")
           + row("спикеры", "кто что сказал в расшифровке видео · 35 мб", !host.backend.inTauri ? later("в браузере нет")
             : speakers ? granted("скачаны") : pill("speakers-get", "скачать"))
+          + row("длина записи", "потом распознается сама", choice("maxMinutes", prefs.maxMinutes ?? 0, [[0, "без предела"], [5, "5 мин"], [15, "15"], [30, "30"], [60, "60"]]))
           + row("вставлять в поле", "ctrl+v за вас в поле, где курсор; иначе — только буфер", host.backend.inTauri ? toggle("paste", prefs.paste ?? false) : later())
           + note("модели не входят в приложение: качаются один раз и проверяются по контрольной сумме");
       }
@@ -176,7 +178,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       const current = prefs[key] ?? (key === "spellcheck");
       await save({ ...prefs, [key]: !current });
     } else if (b.dataset.choice) {
-      const key = b.dataset.choice as "theme" | "textSize" | "commitMinutes" | "speechModel" | "language" | "uiLanguage";
+      const key = b.dataset.choice as "theme" | "textSize" | "commitMinutes" | "speechModel" | "language" | "uiLanguage" | "maxMinutes" | "pushMinutes";
       const textual = key === "theme" || key === "speechModel" || key === "language" || key === "uiLanguage";
       await save({ ...prefs, [key]: textual ? b.dataset.value : Number(b.dataset.value) });
     } else if (b.dataset.set === "git") {

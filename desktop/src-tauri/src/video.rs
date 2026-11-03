@@ -123,3 +123,24 @@ pub fn set_folder(app: &AppHandle, id: &str, folder: Option<String>) {
     }
     save_list(app, &items);
 }
+
+/// Поиск по расшифровкам, как на маке: все слова запроса (без регистра, ё = е) — в тексте или названии.
+/// (id, название, отрывок со словом).
+pub fn search(app: &AppHandle, query: &str) -> Vec<(String, String, String)> {
+    let norm = |s: &str| s.to_lowercase().replace('ё', "е");
+    let q = norm(query);
+    let words: Vec<&str> = q.split_whitespace().collect();
+    if words.is_empty() {
+        return Vec::new();
+    }
+    list(app).into_iter().filter_map(|i| {
+        let t = get(app, &i.id)?;
+        let text = t.text();
+        let hay = norm(&format!("{} {text}", i.title));
+        if !words.iter().all(|w| hay.contains(w)) {
+            return None;
+        }
+        let snippet = t.segments.iter().find(|s| norm(&s.text).contains(words[0])).map(|s| s.text.chars().take(140).collect()).unwrap_or_default();
+        Some((i.id, i.title, snippet))
+    }).take(8).collect()
+}

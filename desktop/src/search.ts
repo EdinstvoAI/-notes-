@@ -6,7 +6,7 @@ import type { Hit, Note, TaskRow } from "./api";
 import { icon, type Glyph } from "./icons";
 import { shell } from "./main";
 
-type Result = { kind: "заметки" | "задачи" | "по смыслу"; title: string; detail: string; snippet: string | null; path: string; glyph: Glyph };
+type Result = { kind: "заметки" | "задачи" | "видео" | "по смыслу"; video?: string; title: string; detail: string; snippet: string | null; path: string; glyph: Glyph };
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const folderOf = (path: string) => {
@@ -76,6 +76,15 @@ async function query(text: string) {
   // По смыслу — модель на этом компьютере (если скачана): заметки, где нет тех же слов.
   if (!shell.backend.inTauri) return;
   const { invoke } = await import("@tauri-apps/api/core");
+  // Видео: слова из расшифровок (как на маке).
+  const videos = await invoke<[string, string, string][]>("video_search", { query: text }).catch(() => []);
+  if (mine !== token || !overlay) return;
+  if (videos.length) {
+    const at = results.findIndex((r) => r.kind === "по смыслу");
+    results.splice(at < 0 ? results.length : at, 0, ...videos.map(([id, title, snippet]): Result =>
+      ({ kind: "видео", title, detail: "расшифровка", snippet, path: "", glyph: "video", video: id })));
+    renderResults(text);
+  }
   const meaning = await invoke<[string, number][]>("meaning_search", { query: text }).catch(() => []);
   if (mine !== token || !overlay || !meaning.length) return;
   const shown = new Set(results.map((r) => r.path));
@@ -90,6 +99,7 @@ function choose(i: number) {
   const r = results[i];
   if (!r) return;
   closeSearch();
+  if (r.video) { void shell.openVideo(r.video); return; }
   void shell.openNote(r.path);
 }
 
@@ -103,7 +113,7 @@ export function openSearch() {
       <label class="search-field">${icon("search", 20)}<input placeholder="найти" spellcheck="false"><span class="search-count"></span></label>
       <div class="search-results"></div>
       <footer><span><kbd class="keycap">↑↓</kbd> выбрать</span><span><kbd class="keycap">enter</kbd> открыть</span>
-        <span><kbd class="keycap">esc</kbd> закрыть</span><em>заметки, задачи и по смыслу</em></footer>
+        <span><kbd class="keycap">esc</kbd> закрыть</span><em>заметки, задачи, видео, по смыслу</em></footer>
     </div>`;
   document.body.append(overlay);
   const input = overlay.querySelector("input")!;

@@ -75,3 +75,7 @@ pub fn pref_bool(app: &AppHandle, key: &str) -> bool {
 pub fn pref_str(app: &AppHandle, key: &str) -> Option<String> {
     serde_json::from_str::<serde_json::Value>(&prefs(app)).ok().and_then(|v| Some(v.get(key)?.as_str()?.to_string()))
 }
+
+pub fn pref_num(app: &AppHandle, key: &str) -> Option<f64> {
+    serde_json::from_str::<serde_json::Value>(&prefs(app)).ok().and_then(|v| v.get(key)?.as_f64())
+}

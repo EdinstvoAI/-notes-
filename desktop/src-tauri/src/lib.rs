@@ -639,6 +639,11 @@ fn video_folder(id: String, folder: Option<String>, app: tauri::AppHandle) {
 }
 
 #[tauri::command]
+fn video_search(query: String, app: tauri::AppHandle) -> Vec<(String, String, String)> {
+    video::search(&app, &query)
+}
+
+#[tauri::command]
 fn video_delete(id: String, app: tauri::AppHandle) {
     video::delete(&app, &id);
 }
@@ -745,7 +750,7 @@ pub fn run() {
             dictation_toggle, models, model_download, model_remove, dictation_test,
             meaning_installed, meaning_download, meaning_search, selftest_install_e5,
             video_list, video_add, video_get, video_rename_speaker, video_delete, video_save_note, video_srt,
-            video_mark, video_folder, autostart, set_autostart, set_hotkey, speakers_installed, speakers_download, selftest_install_speakers
+            video_mark, video_folder, video_search, autostart, set_autostart, set_hotkey, speakers_installed, speakers_download, selftest_install_speakers
         ])
         .run(tauri::generate_context!())
         .expect("error while running <notes>");

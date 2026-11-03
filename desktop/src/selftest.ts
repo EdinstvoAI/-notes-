@@ -114,6 +114,8 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
       for (let i = 0; i < 120 && !done; i++) await pause(500);
       stopV();
       await invoke("video_folder", { id: item.id, folder: "созвоны" });
+      const found = await invoke<[string, string, string][]>("video_search", { query: "ЛУКОМОРЬЯ дуб" });
+      await check("search finds words in transcripts", found.some(([id]) => id === item.id));
       const note = await invoke<string>("video_save_note", { id: item.id });
       const text = await backend.read(note);
       await check(`transcript note ${note}`, note === "расшифровки/созвоны/example.md" && /\*\*00:00( спикер 1:)?\*\* /.test(text) && text.includes("модель: gigaam") && (!seg || text.includes("спикер 1:")));

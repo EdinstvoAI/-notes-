@@ -12,7 +12,7 @@ import { enableDrag, enableFileDrop, type DragHost } from "./drag";
 import { mountCalendar } from "./calendar";
 import { mountTasks } from "./tasks";
 import { mountSettings } from "./settings";
-import { addFiles, mountVideo } from "./video";
+import { addFiles, mountVideo, selectVideo } from "./video";
 import { languageFor, setLanguage } from "./i18n";
 import type { Prefs } from "./api";
 
@@ -465,6 +465,11 @@ let prefs: Prefs = {};
 function applyPrefs(next: Prefs) {
   prefs = next;
   const root = document.documentElement;
+  // Смена темы — плавно, как ThemeCrossfade на маке (0,5 с), а не рывком.
+  if (prefs.theme !== undefined && prefs.theme !== next.theme) {
+    root.classList.add("theming");
+    setTimeout(() => root.classList.remove("theming"), 600);
+  }
   if (!forced) {
     if (next.theme === "light" || next.theme === "dark") root.dataset.theme = next.theme;
     else delete root.dataset.theme;
@@ -515,7 +520,7 @@ async function refreshSync() {
     if (minutes >= (prefs.commitMinutes ?? 60) && (await backend.gitCommit())) return refreshSync();
     if (gh.signed_in && gh.remote) {
       // С GitHub — как на маке: «синхронизировано N мин назад»; раз в час забираем и отправляем.
-      if (!prefs.lastSync || Date.now() - prefs.lastSync > 60 * 60 * 1000) await syncWithGithub();
+      if (!prefs.lastSync || Date.now() - prefs.lastSync > (prefs.pushMinutes ?? 60) * 60 * 1000) await syncWithGithub();
       text.textContent = syncError ? "не отправилось" : prefs.lastSync ? `синхронизировано ${agoText(prefs.lastSync / 1000)}` : "синхронизируем…";
     } else {
       // Только локальная история — честно «сохранено».
@@ -689,7 +694,13 @@ window.addEventListener("keydown", (e) => {
 });
 
 // ——— старт ———
-export const shell = { get backend() { return backend; }, get state() { return state; }, openNote, app };
+async function openVideo(id: string) {
+  selectVideo(id);
+  state.section = "video";
+  lastKey = "";
+  render();
+}
+export const shell = { get backend() { return backend; }, get state() { return state; }, openNote, openVideo, app };
 (async () => {
   backend = await api;
   const os = await backend.os();

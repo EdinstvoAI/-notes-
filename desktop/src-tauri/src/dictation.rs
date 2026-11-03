@@ -1,6 +1,6 @@
 //! Надиктовка — как `DictationController` на маке: хоткей «нажал — нажал» (первое нажатие — пишем,
 //! второе — распознаём), сфера поверх всех окон, текст — в буфер обмена. Всё на этом компьютере.
-//! Забыли нажать второй раз — через 5 минут останавливаемся сами; пока распознаём, нажатия не считаем.
+//! Предел длины записи — из настроек (по умолчанию нет); пока распознаём, нажатия не считаем.
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use serde::Serialize;
@@ -11,7 +11,13 @@ use notes_speech::{GigaAm, Model, ModelStore, SAMPLE_RATE};
 
 /// Фразы короче — случайное нажатие, не распознаём (как на маке).
 const MIN_SECONDS: f32 = 0.4;
-const MAX_SECONDS: u64 = 5 * 60;
+/// Длина записи — из настроек (1–60 мин); по умолчанию без предела, как на маке после 01.11.2026.
+fn max_seconds(app: &AppHandle) -> u64 {
+    match crate::platform::settings::pref_num(app, "maxMinutes") {
+        Some(m) if m > 0.0 => (m * 60.0) as u64,
+        _ => u64::MAX,
+    }
+}
 
 #[derive(Clone, Serialize)]
 #[serde(tag = "state", rename_all = "lowercase")]
@@ -162,9 +168,10 @@ fn start(app: AppHandle) -> Result<Recording, String> {
             Ok(stream) => {
                 let _ = ready_tx.send(Ok(()));
                 let started = std::time::Instant::now();
+                let limit = max_seconds(&app);
                 while !st.load(std::sync::atomic::Ordering::SeqCst) {
                     std::thread::sleep(std::time::Duration::from_millis(30));
-                    if started.elapsed().as_secs() >= MAX_SECONDS {
+                    if started.elapsed().as_secs() >= limit {
                         // Забыли нажать второй раз — останавливаемся сами.
                         let app2 = app.clone();
                         std::thread::spawn(move || toggle(&app2));

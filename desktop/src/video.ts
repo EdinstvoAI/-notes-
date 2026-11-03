@@ -25,6 +25,9 @@ const nowStamp = () => { const d = new Date(), p = (n: number) => String(n).padS
 
 let open: string | null = null;
 
+/** Открыть расшифровку (из поиска). */
+export function selectVideo(id: string) { open = id; }
+
 /** Зона «перетащите» — шейдер DropZone.metal: стеклянные планки, за ними плывут тёплые пятна. */
 function animateZone() {
   const zone = document.querySelector<HTMLElement>(".drop-zone");
