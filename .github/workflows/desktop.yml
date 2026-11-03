@@ -15,8 +15,15 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: desktop } }
     steps:
-      - uses: actions/checkout@v4
-        with: { sparse-checkout: desktop }  # имена с < > не создать на Windows
+      # <notes>.xcodeproj и прочие имена с < > Windows не создаёт: берём только desktop/,
+      # а проверку имён NTFS выключаем — эти файлы на диск не попадают.
+      - name: checkout desktop
+        working-directory: .
+        shell: bash
+        run: |
+          git init -q . && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          git config core.protectNTFS false && git sparse-checkout set desktop
+          git fetch -q --depth 1 origin "$GITHUB_SHA" && git checkout -q FETCH_HEAD
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test -p notes-core
       - uses: actions/setup-node@v4
@@ -32,8 +39,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults: { run: { working-directory: desktop } }
     steps:
-      - uses: actions/checkout@v4
-        with: { sparse-checkout: desktop }  # имена с < > не создать на Windows
+      # <notes>.xcodeproj и прочие имена с < > Windows не создаёт: берём только desktop/,
+      # а проверку имён NTFS выключаем — эти файлы на диск не попадают.
+      - name: checkout desktop
+        working-directory: .
+        shell: bash
+        run: |
+          git init -q . && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          git config core.protectNTFS false && git sparse-checkout set desktop
+          git fetch -q --depth 1 origin "$GITHUB_SHA" && git checkout -q FETCH_HEAD
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
@@ -56,8 +70,15 @@ jobs:
     runs-on: windows-latest
     defaults: { run: { working-directory: desktop, shell: pwsh } }
     steps:
-      - uses: actions/checkout@v4
-        with: { sparse-checkout: desktop }  # имена с < > не создать на Windows
+      # <notes>.xcodeproj и прочие имена с < > Windows не создаёт: берём только desktop/,
+      # а проверку имён NTFS выключаем — эти файлы на диск не попадают.
+      - name: checkout desktop
+        working-directory: .
+        shell: bash
+        run: |
+          git init -q . && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          git config core.protectNTFS false && git sparse-checkout set desktop
+          git fetch -q --depth 1 origin "$GITHUB_SHA" && git checkout -q FETCH_HEAD
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
