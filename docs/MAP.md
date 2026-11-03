@@ -65,6 +65,7 @@
 - `NotesCore/Sources/NotesCore/NoteSections.swift` — разделы от Apple Intelligence в заметке: «## Кратко» и «## Задачи».
 - `NotesCore/Sources/NotesCore/NoteTasks.swift` — задачи из строк заметок: разбор, отметка, группы, план синхронизации с календарём.
 - `NotesCore/Sources/NotesCore/Transcript.swift` — расшифровка: куски с временем, .srt, заметка Markdown.
+- `.github/workflows/release.yml` — релиз по тегу: DMG на macOS и релиз с текстом из CHANGELOG.
 - `NotesCore/Sources/NotesCore/GitVault+History.swift` — история коммитов с файлами, отмена одного коммита и откат к версии новым коммитом.
 - `NotesCore/Tests/NotesCoreTests/GitHistoryTests.swift` — тесты истории: порядок, отмена, откат, конфликт.
 - `NotesCore/Sources/NotesCore/MCPServer.swift` — локальный MCP-сервер для нейронок: поиск, чтение, новые заметки и задачи, только внутри хранилища.

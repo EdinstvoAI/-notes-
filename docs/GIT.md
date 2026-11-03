@@ -27,7 +27,9 @@
 1. `CHANGELOG.md` в корне — новый раздел сверху, **по-английски**, по разделам приложения.
 2. `MARKETING_VERSION` в проекте — тот же номер.
 3. `Scripts/make-dmg.sh`, Dev — fast-forward в `main`, тег `vX.Y.Z` на `main`, пуш `main`, `Dev` и тега.
-4. `gh release create vX.Y.Z build/notes.dmg --title "<notes> X.Y.Z" --notes-file …` — текст из раздела
+   Пуш тега запускает `.github/workflows/release.yml`: сборка DMG на macOS (подпись ad-hoc) и релиз
+   с разделом из CHANGELOG. Если релиз уже создан руками — action его не трогает (03.11.2026).
+4. Руками, если action не справился: `gh release create vX.Y.Z build/notes.dmg --title "<notes> X.Y.Z" --notes-file …` — текст из раздела
    CHANGELOG.
 
 Название релиза — **только имя и версия**: `<notes> 1.0.0`, без описания в названии. Описание —
