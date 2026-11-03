@@ -19,6 +19,8 @@ export interface TasksHost {
   openNote(path: string): Promise<void>;
   /** Сколько открытых — в шапку боковой панели и путь. */
   onFilter(title: string): void;
+  /** Положить шаг в Ctrl+Z приложения. */
+  undoable(label: string, run: () => Promise<void>): void;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
@@ -145,7 +147,12 @@ export function mountTasks(root: HTMLElement, sidebar: HTMLElement, host: TasksH
       const rowEl = b.closest<HTMLElement>(".task-row")!;
       rowEl.classList.toggle("checking");
       b.innerHTML = icon(t.done ? "task" : "taskDone");
-      try { await host.backend.setDone(t, !t.done); } catch { /* поменяли снаружи — перечитаем */ }
+      try {
+        await host.backend.setDone(t, !t.done);
+        // Ctrl+Z — снять отметку: строка теперь с другим квадратиком, её и ищем.
+        const raw = t.raw.replace(/\[[ xX]\]/, t.done ? "[ ]" : "[x]");
+        host.undoable("отметка задачи", () => host.backend.setDone({ ...t, raw, done: !t.done }, t.done));
+      } catch { /* поменяли снаружи — перечитаем */ }
       setTimeout(() => { rowEl.classList.add("leaving"); setTimeout(() => void reload(), 450); }, 500);
     } else if (b.dataset.open) {
       await host.openNote(all[Number(b.dataset.open)].note);
