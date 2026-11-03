@@ -1,0 +1,38 @@
+# Бета Tauri-версии на обе ОС: пушишь тег `multi-v…` — Actions собирает exe (Windows) и dmg (macOS)
+# и выкладывает pre-release. Репозиторий открытый: только GITHUB_TOKEN, без секретов; сборки не подписаны.
+name: release
+on:
+  push:
+    tags: ["multi-v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults: { run: { working-directory: desktop } }
+    steps:
+      # <notes>.xcodeproj и прочие имена с < > Windows не создаёт: берём только desktop/.
+      - name: checkout desktop
+        working-directory: .
+        shell: bash
+        run: |
+          git init -q . && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          git config core.protectNTFS false && git sparse-checkout set desktop
+          git fetch -q --depth 1 origin "$GITHUB_SHA" && git checkout -q FETCH_HEAD
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npx tauri build --bundles ${{ matrix.os == 'windows-latest' && 'nsis' || 'dmg' }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: "<notes> ${{ github.ref_name }}"
+          prerelease: true
+          body_path: desktop/RELEASE-BETA.md
+          files: |
+            desktop/target/release/bundle/nsis/*.exe
+            desktop/target/release/bundle/dmg/*.dmg
