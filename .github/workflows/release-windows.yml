@@ -16,6 +16,7 @@ jobs:
     defaults: { run: { working-directory: desktop } }
     steps:
       - uses: actions/checkout@v4
+        with: { sparse-checkout: desktop }  # имена с < > не создать на Windows
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
