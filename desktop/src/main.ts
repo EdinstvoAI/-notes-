@@ -13,6 +13,7 @@ import { mountCalendar } from "./calendar";
 import { mountTasks } from "./tasks";
 import { mountSettings } from "./settings";
 import { addFiles, mountVideo } from "./video";
+import { languageFor, setLanguage } from "./i18n";
 import type { Prefs } from "./api";
 
 type Section = "notes" | "tasks" | "calendar" | "video" | "settings";
@@ -468,6 +469,7 @@ function applyPrefs(next: Prefs) {
     if (next.theme === "light" || next.theme === "dark") root.dataset.theme = next.theme;
     else delete root.dataset.theme;
   }
+  setLanguage(languageFor(next.uiLanguage));
   root.style.setProperty("--note-size", `${next.textSize ?? 15}px`);
   root.style.setProperty("--note-grow", `${(next.textSize ?? 15) - 15}px`);
   document.querySelectorAll<HTMLElement>(".note-text").forEach((e) => (e.spellcheck = next.spellcheck ?? true));

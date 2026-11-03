@@ -77,6 +77,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       case "general":
         return row("тема", "как в системе, светлая или тёмная", choice("theme", prefs.theme ?? "system", [["system", "система"], ["light", "светлая"], ["dark", "тёмная"]]))
           + row("размер текста заметок", `${prefs.textSize ?? 15} — заголовки растут вместе с текстом`, choice("textSize", prefs.textSize ?? 15, [13, 15, 17, 19].map((n) => [n, String(n)])))
+          + row("язык интерфейса", "как в системе, русский, english, srpski", choice("uiLanguage", prefs.uiLanguage ?? "system", [["system", "система"], ["ru", "ru"], ["en", "en"], ["sr", "sr"]]))
           + row("проверка орфографии", "подчёркивать слова с ошибкой", toggle("spellcheck", prefs.spellcheck ?? true))
           + row("открывать при входе в " + (isMac ? "mac" : "windows"), "сразу после включения компьютера",
             host.backend.inTauri && !isMac ? toggle("autostart", autostartOn) : later());
@@ -175,8 +176,8 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       const current = prefs[key] ?? (key === "spellcheck");
       await save({ ...prefs, [key]: !current });
     } else if (b.dataset.choice) {
-      const key = b.dataset.choice as "theme" | "textSize" | "commitMinutes" | "speechModel" | "language";
-      const textual = key === "theme" || key === "speechModel" || key === "language";
+      const key = b.dataset.choice as "theme" | "textSize" | "commitMinutes" | "speechModel" | "language" | "uiLanguage";
+      const textual = key === "theme" || key === "speechModel" || key === "language" || key === "uiLanguage";
       await save({ ...prefs, [key]: textual ? b.dataset.value : Number(b.dataset.value) });
     } else if (b.dataset.set === "git") {
       b.textContent = "включаем…";

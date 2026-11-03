@@ -31,6 +31,8 @@ export interface Prefs {
   speechModel?: string;
   /** Язык речи для Whisper: «auto», «ru», «en»… */
   language?: string;
+  /** Язык интерфейса: «system», «ru», «en», «sr». */
+  uiLanguage?: string;
 }
 
 export interface GithubStatus { signed_in: boolean; remote: string | null; unpushed: boolean }
