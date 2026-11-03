@@ -16,7 +16,7 @@
         "title": "<notes>",
         "width": 1200,
         "height": 760,
-        "minWidth": 820,
+        "minWidth": 870,
         "minHeight": 760,
         "decorations": true,
         "transparent": true,

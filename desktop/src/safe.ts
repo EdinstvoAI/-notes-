@@ -6,6 +6,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Prefs } from "./api";
 import { icon, type Glyph } from "./icons";
 import { showMenu } from "./menu";
+import { os, hello } from "./platform";
+import { blurIn } from "./motion";
 
 type Kind = "login" | "totp" | "secret";
 interface Item { id: string; kind: Kind; title: string; username: string; secret: string; url: string; note: string; modified: number }
@@ -16,7 +18,7 @@ const LOCKS = [30, 60, 300, 900, 3600, 0];
 const lockTitle = (s: number) => s === 0 ? "никогда" : s < 60 ? `${s} сек` : s < 3600 ? `${s / 60} мин` : `${s / 3600} ч`;
 // Шаги переноса — как на маке, но откуда выгружать на Windows: Edge, Chrome или «Пароли iCloud».
 const STEPS = [
-  "открой Edge, Chrome или «Пароли iCloud» для Windows",
+  os("открой Edge, Chrome или «Пароли iCloud» для Windows", "открой «Пароли» на маке, Chrome или Safari"),
   "выгрузи пароли в файл CSV: настройки → пароли → экспорт",
   "здесь нажми «выбрать файл» и укажи его",
   "удали этот файл и очисти корзину: в нём пароли открытым текстом",
@@ -77,7 +79,7 @@ export async function mountSafe(root: HTMLElement, sidebar: HTMLElement, host: S
     `<input class="safe-input" name="${name}" type="${type}" placeholder="${ph}" value="${esc(value)}" spellcheck="false" autocomplete="off">`;
 
   function lockScreen(): string {
-    if (state.remembered && state.hello) return coral("hello", "открыть по windows hello");
+    if (state.remembered && state.hello) return coral("hello", `открыть по ${hello}`);
     const creating = !state.exists;
     if (creating && !st.own) return `<div class="safe-actions">${coral("create", "создать сейф")}${quiet("own", "свой мастер-пароль")}</div>`;
     return `<form class="safe-form" data-form="${creating ? "create" : "unlock"}">
@@ -122,9 +124,9 @@ export async function mountSafe(root: HTMLElement, sidebar: HTMLElement, host: S
          <button class="row" style="padding-left:8px" data-side="lock">${icon("settings")}<span>закрыть сейф</span></button>` : "";
     const title = state.unlocked ? KINDS.find(([k]) => k === st.kind)![1] : "пароли";
     const sub = state.unlocked ? "в зашифрованном файле .safe/safe.enc, на github — только шифром"
-      : state.remembered && state.hello ? "сейф открывается windows hello: лицо, палец или пин-код windows"
-      : state.exists ? "на новом компьютере — ключ сейфа один раз, дальше windows hello"
-      : "ключ придумает компьютер и спрячет в диспетчер учётных данных — открывать будешь windows hello";
+      : state.remembered && state.hello ? os("сейф открывается windows hello: лицо, палец или пин-код windows", "сейф открывается touch id")
+      : state.exists ? `на новом компьютере — ключ сейфа один раз, дальше ${hello}`
+      : os("ключ придумает компьютер и спрячет в диспетчер учётных данных — открывать будешь windows hello", "ключ придумает компьютер и спрячет в связку ключей — открывать будешь touch id");
     let body = "";
     if (!state.unlocked) body = lockScreen();
     else {
@@ -229,7 +231,7 @@ export async function mountSafe(root: HTMLElement, sidebar: HTMLElement, host: S
     const b = (e.target as HTMLElement).closest<HTMLElement>("[data-kind],[data-side]");
     if (!b || !root.isConnected) return;
     touch();
-    if (b.dataset.kind) { st.kind = b.dataset.kind as Kind; st.open = null; st.adding = false; paint(); }
+    if (b.dataset.kind) { st.kind = b.dataset.kind as Kind; st.open = null; st.adding = false; paint(); blurIn(root); }
     else if (b.dataset.side === "key") { await invoke("safe_copy", { what: "key" }); b.querySelector("span")!.textContent = "ключ скопирован на минуту"; }
     else { await lockSafe(); await load(); }
   };

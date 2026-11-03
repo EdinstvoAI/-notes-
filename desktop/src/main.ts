@@ -2,6 +2,7 @@
 // путь капсулой, дерево слева, раздел справа. Окно 1200×760, сжимается до 820.
 
 import { api, type Api, type Folder, type Note } from "./api";
+import { os } from "./platform";
 export type { Note };
 import { icon, type Glyph } from "./icons";
 import { drawSlats } from "./slats";
@@ -65,7 +66,7 @@ app.innerHTML = `
   <header class="topbar arrive" style="transition-delay:.05s">
     <div class="group brand">
       <button class="logo" data-go="home">&lt;notes&gt;</button>
-      <button class="search">${icon("search")}<span>поиск</span><kbd class="keycap">Ctrl K</kbd></button>
+      <button class="search">${icon("search")}<span>поиск</span><kbd class="keycap">${os("Ctrl K", "⌘K")}</kbd></button>
     </div>
     <nav class="group sections"></nav>
     <div class="group sync" title="история в git">${icon("git")}<span class="sync-text">без git</span></div>
@@ -100,21 +101,44 @@ const FITS = ["full", "nosync", "hybrid", "icons"] as const;
 function fitHeader() {
   for (const fit of FITS) {
     topbar.dataset.fit = fit;
-    if (topbar.scrollWidth <= topbar.clientWidth) return;
+    if (topbar.scrollWidth <= topbar.clientWidth) break;
   }
+  movePill();
 }
 new ResizeObserver(() => { paintSlats(); fitHeader(); }).observe(app);
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { paintSlats(); applyPrefs(prefs); });
 
 // ——— шапка ———
 function renderNav() {
-  nav.innerHTML = SECTIONS.map((s) => `
-    <button class="section${s.id === state.section ? " active" : ""}" data-section="${s.id}" title="${s.title}">
+  // Кнопки строим один раз и дальше только переключаем: так подсветка едет, а линза стекла
+  // (glass.ts живёт внутри капсулы) не выкидывается — из-за innerHTML капсула пропадала.
+  const built = nav.querySelectorAll(".section").length === SECTIONS.length;
+  if (!built) {
+    const lens = nav.querySelector(".glass-lens");
+    nav.innerHTML = `<span class="nav-pill"></span>` + SECTIONS.map((s) => `
+    <button class="section" data-section="${s.id}" title="${s.title}">
       ${icon(s.glyph)}<span>${s.title}</span>
     </button>`).join("");
+    if (lens) nav.prepend(lens);
+  }
+  nav.querySelectorAll<HTMLElement>(".section").forEach((b) => b.classList.toggle("active", b.dataset.section === state.section));
+}
+
+// Подсветка раздела едет к новому, как withAnimation(.smooth(0.45)) на маке, а не перескакивает.
+let pillAt: string | null = null;
+function movePill(animate = true) {
+  const pill = nav.querySelector<HTMLElement>(".nav-pill");
+  const on = nav.querySelector<HTMLElement>(".section.active");
+  if (!pill || !on) return;
+  pill.style.transition = animate && pillAt !== null && pillAt !== state.section ? "" : "none";
+  pill.style.transform = `translateX(${on.offsetLeft}px)`;
+  pill.style.width = `${on.offsetWidth}px`;
+  pillAt = state.section;
 }
 
 // ——— дерево ———
+// Папка, раскрытая этим кликом: её строки въезжают (.unfold), остальные рисуются как есть.
+let unfolding: string | null = null;
 function findFolder(path: string, node = state.tree): Folder | null {
   if (!node) return null;
   if (node.path === path) return node;
@@ -134,7 +158,7 @@ function rows(folder: Folder, depth: number): string {
     const selected = state.selection.kind === "folder" && state.selection.path === f.path;
     html += `<button class="row${selected ? " selected" : ""}" style="padding-left:${pad}px" data-folder="${esc(f.path)}">
       ${icon("folder")}<span>${esc(f.name)}</span></button>`;
-    if (state.expanded.has(f.path)) html += rows(f, depth + 1);
+    if (state.expanded.has(f.path)) html += `<div class="fold${f.path === unfolding ? " unfold" : ""}" data-of="${esc(f.path)}">${rows(f, depth + 1)}</div>`;
   }
   for (const f of folder.files) {
     const selected = state.selection.kind === "file" && state.selection.path === f.path;
@@ -447,10 +471,19 @@ app.addEventListener("click", async (e) => {
     render();
   } else if (el.dataset.folder !== undefined) {
     const path = el.dataset.folder;
-    if (el.classList.contains("row") && state.expanded.has(path) && state.selection.path === path) state.expanded.delete(path);
-    else state.expanded.add(path);
+    // Папка раскрывается и сворачивается плавно, 0,3 с — как .smooth(duration: 0.3) на маке.
+    if (el.classList.contains("row") && state.expanded.has(path) && state.selection.path === path) {
+      const kids = [...sidebar.querySelectorAll<HTMLElement>(".fold")].find((d) => d.dataset.of === path);
+      state.expanded.delete(path);
+      state.selection = { kind: "folder", path };
+      if (kids) { kids.classList.add("folding"); setTimeout(render, 300); } else render();
+      return;
+    }
+    if (!state.expanded.has(path)) unfolding = path;
+    state.expanded.add(path);
     state.selection = { kind: "folder", path };
     render();
+    unfolding = null;
   } else if (el.dataset.file) {
     state.selection = { kind: "file", path: el.dataset.file };
     render();
@@ -631,7 +664,7 @@ async function undo() {
 }
 
 // ——— меню правого клика: как NoteMenu на маке ———
-const revealLabel = () => (document.body.classList.contains("tauri-macos") ? "Показать в Finder" : "Показать в Проводнике");
+const revealLabel = () => os("Показать в Проводнике", "Показать в Finder");
 const under = (path: string, root: string) => path === root || path.startsWith(root + "/");
 
 async function reload() {

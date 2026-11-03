@@ -22,12 +22,15 @@ function frame(now: number) {
   shown = shown.map((v, i) => v + (target[i] - v) * 0.18);
   const bands = shown;
   if (state !== "idle") draw?.({ t, dark: dark(), canvas: 1.9, think, done, bands });
-  requestAnimationFrame(frame);
+  // В покое кадры не крутим: окно сферы живёт всё время, и пустой цикл грел процессор.
+  if (state === "idle") running = false; else requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+let running = false;
+const kick = () => { if (!running) { running = true; requestAnimationFrame(frame); } };
 
 void listen<{ state: State; level?: number; bands?: number[] }>("dictation", (e) => {
   if (e.payload.state === "level") { level = e.payload.level ?? 0; target = e.payload.bands ?? [level, level, level, level]; return; }
   if (e.payload.state === "copied") doneAt = performance.now();
   state = e.payload.state;
+  kick();
 });

@@ -4,6 +4,7 @@
 // Карточка «придумай пинкод → повтори → не совпало» — в настройках → вход.
 
 import { invoke } from "@tauri-apps/api/core";
+import { os, hello } from "./platform";
 
 const LENGTH = 4;
 const nowS = () => Math.floor(Date.now() / 1000);
@@ -41,12 +42,12 @@ export function showUnlock(state: LockState): Promise<void> {
     const render = () => {
       const subtitle = wait ? `слишком много попыток, подожди ${waitText(wait)}`
         : wrong ? "неверный пинкод"
-        : state.hello ? "или войдите через windows hello" : "чтобы открыть заметки";
+        : state.hello ? os("или войдите через windows hello", "или войдите через touch id") : "чтобы открыть заметки";
       el.innerHTML = `<div class="unlock-sheet">
         <h1>введи пинкод</h1>
         <p class="${wrong || wait ? "error" : ""}">${subtitle}</p>
         <div class="${wait ? "waiting" : ""}">${cells(digits.length, wait ? null : digits.length, wrong && !wait)}</div>
-        ${state.hello ? `<button class="quiet" data-hello>windows hello</button>` : ""}
+        ${state.hello ? `<button class="quiet" data-hello>${hello}</button>` : ""}
         <button class="quiet forgot" data-forgot>забыл пинкод</button>
       </div>`;
     };
@@ -98,7 +99,7 @@ export function showUnlock(state: LockState): Promise<void> {
       busy = false;
       if (!ok) {
         wrong = false;
-        el.querySelector("p")!.textContent = "не подтвердилось: нужен вход в windows (параметры → учётные записи → варианты входа)";
+        el.querySelector("p")!.textContent = os("не подтвердилось: нужен вход в windows (параметры → учётные записи → варианты входа)", "не подтвердилось: включи touch id в системных настройках");
         return;
       }
       await lockApi.clear();

@@ -5,6 +5,8 @@
 import type { Api, Prefs } from "./api";
 import { icon, type Glyph } from "./icons";
 import { choosePin, lockApi, type LockState } from "./lock";
+import { os } from "./platform";
+import { blurIn } from "./motion";
 
 type Page = "general" | "sync" | "search" | "templates" | "calendar" | "dictation" | "lock";
 const PAGES: [Page, string, string, Glyph][] = [
@@ -14,7 +16,7 @@ const PAGES: [Page, string, string, Glyph][] = [
   ["templates", "шаблоны", "шаблоны заметок и автоматизация", "file"],
   ["calendar", "календарь", "задачи со сроком в календаре", "calendar"],
   ["dictation", "надиктовка", "текст сразу в буфере", "microphone"],
-  ["lock", "вход", "пинкод и windows hello", "task"],
+  ["lock", "вход", os("пинкод и windows hello", "пинкод и touch id"), "task"],
 ];
 
 export interface SettingsHost {
@@ -127,7 +129,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
           + row("спикеры", "кто что сказал в расшифровке видео · 35 мб", !host.backend.inTauri ? later("в браузере нет")
             : speakers ? granted("скачаны") : pill("speakers-get", "скачать"))
           + row("длина записи", "потом распознается сама", choice("maxMinutes", prefs.maxMinutes ?? 0, [[0, "без предела"], [5, "5 мин"], [15, "15"], [30, "30"], [60, "60"]]))
-          + row("вставлять в поле", "ctrl+v за вас в поле, где курсор; иначе — только буфер", host.backend.inTauri ? toggle("paste", prefs.paste ?? false) : later())
+          + row("вставлять в поле", os("ctrl+v за вас в поле, где курсор; иначе — только буфер", "⌘v за вас в поле, где курсор; иначе — только буфер"), host.backend.inTauri ? toggle("paste", prefs.paste ?? false) : later())
           + note("модели не входят в приложение: качаются один раз и проверяются по контрольной сумме");
       }
       case "lock":
@@ -318,6 +320,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
     const b = (e.target as HTMLElement).closest<HTMLElement>("[data-page]");
     if (!b || !root.isConnected) return;
     page = b.dataset.page as Page;
+    blurIn(root);
     render();
   });
   render();

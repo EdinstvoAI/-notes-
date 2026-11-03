@@ -1,4 +1,12 @@
 {
+"скиллы": {
+"en": "skills",
+"sr": "skilovi"
+},
+"готовые инструкции для нейросети: что делать с заметками": {
+"en": "ready-made instructions for the AI: what to do with notes",
+"sr": "gotova uputstva za AI: šta raditi sa beleškama"
+},
 " · скачано": {
 "en": " · downloaded",
 "sr": " · preuzeto"
@@ -1752,6 +1760,11 @@
 "sr": "sef se otvara sa Windows Hello"
 },
 "__patterns": [
+[
+"^≈ (.+) токенов отдано нейросети$",
+"≈ $1 tokens given to the AI",
+"≈ $1 tokena predato AI"
+],
 [
 "^\\\n\\\nУже\\ скачано:\\ (.+?)\\.\\ Можно\\ надиктовывать\\ ей\\ прямо\\ сейчас\\.$",
 "\n\nAlready downloaded: $1. You can dictate with it right now.",

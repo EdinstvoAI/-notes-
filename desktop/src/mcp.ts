@@ -4,8 +4,9 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type { Prefs } from "./api";
-import { icon } from "./icons";
+import { icon, type Glyph } from "./icons";
 import { showMenu } from "./menu";
+import { blurIn } from "./motion";
 
 type Agent = "claude" | "codex" | "cursor";
 const AGENTS: [Agent, string][] = [["claude", "Claude Code"], ["codex", "Codex"], ["cursor", "Cursor"]];
@@ -76,8 +77,11 @@ export async function mountMcp(root: HTMLElement, sidebar: HTMLElement, host: Mc
       : `<h1>mcp</h1><p class="settings-sub">локальный сервер: claude code, codex и cursor работают с заметками на этом компьютере, без сети</p>`;
     let body = row("нейросеть", name, `<button class="pill" data-agent>изменить</button>`);
     if (skillsPage) {
-      body += SKILLS.map((s, i) => row(s.title, s.about, agent === "cursor" ? copy(`skill:${s.name}`)
-        : `<button class="pill" data-install="${i}">${installed[i] ? "установлен" : "установить"}</button>`)).join("");
+      // Карточками, как SkillCard на маке: значок кораллом, название, что делает, кнопка внизу.
+      const GLYPHS: Glyph[] = ["search", "notes", "task", "calendar", "microphone", "spark"];
+      body += `<div class="skill-cards">${SKILLS.map((s, i) => `<div class="skill-card">${icon(GLYPHS[i] ?? "spark", 20)}
+        <b>${s.title}</b><small>${s.about}</small>${agent === "cursor" ? copy(`skill:${s.name}`)
+        : `<button class="pill" data-install="${i}">${installed[i] ? "установлен" : "установить"}</button>`}</div>`).join("")}</div>`;
     } else {
       body += row("подключить", agent === "cursor" ? "вставь в %USERPROFILE%\\.cursor\\mcp.json" : "команда в терминал, один раз", copy("connect"))
         + row("закрытые папки", hidden.length ? esc([...hidden].sort().join(", ")) : "нет — видно всё хранилище", `<button class="pill" data-hidden>выбрать</button>`)
@@ -126,7 +130,7 @@ export async function mountMcp(root: HTMLElement, sidebar: HTMLElement, host: Mc
   sidebar.onclick = (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>("[data-mcp]");
     if (!b || !root.isConnected) return;
-    skillsPage = b.dataset.mcp === "skills"; copied = ""; paint();
+    skillsPage = b.dataset.mcp === "skills"; copied = ""; paint(); blurIn(root);
   };
   // Журнал обновляется сам, пока раздел открыт (на маке — раз в 3 с).
   const timer = setInterval(() => { if (!root.isConnected) clearInterval(timer); else if (!skillsPage && host.inTauri) void load(); }, 3000);

@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Api, Folder } from "./api";
 import { choosePin } from "./lock";
 import { drawSlats } from "./slats";
+import { os } from "./platform";
 
 /** Загрузка (кадр «Загрузка», ONBOARDING.md §0): планки растут в ширину 4 → 20 без зазоров за 2,4 с,
  *  логотип проявляется (fade + scale), потом уезжает вверх, на место в шапке. */
@@ -64,7 +65,7 @@ export async function runOnboarding(backend: Api): Promise<Folder> {
         code: () => view("введи код на github", "github.com/login/device — код уже скопирован", undefined, ["назад", "github"], `<div class="device-code big">${esc(extra || "····–····")}</div>`),
         githubDone: () => view("готово!", `создали приватный репозиторий ${esc(repo)}. история отправляется туда сама`, ["дальше", "models"]),
         models: () => view("модели", "надиктовка gigaam (русский, 176 мб) работает без интернета, скачивается один раз", ["скачать и дальше", "download"], ["позже, в настройках", "permissions"]),
-        permissions: () => view("пару моментиков", "микрофон: параметры windows → конфиденциальность → микрофон. надиктовка — ctrl + alt + space", ["дальше", "password"]),
+        permissions: () => view("пару моментиков", os("микрофон: параметры windows → конфиденциальность → микрофон. надиктовка — ctrl + alt + space", "микрофон: системные настройки → конфиденциальность → микрофон. надиктовка — ⌥ space"), ["дальше", "password"]),
         password: () => view("установим пароль?", "4 цифры при входе. заметки не шифруются — их откроет любой редактор", ["задать пинкод", "pin"], ["без пароля", "done"]),
         done: () => view("всё готово", "заметки — обычные файлы .md в твоей папке", ["открыть заметки", "finish"]),
       }[step]();
@@ -82,7 +83,13 @@ export async function runOnboarding(backend: Api): Promise<Folder> {
             tree = path ? await invoke<Folder>("create_vault_at", { path }) : null;
           }
           if (!tree) return;
-          step = "git";
+          // Папка уже git-репозиторий — не предлагаем «инициализировать»: открываем его как есть
+          // (история и .gitignore не трогаются), а с готовым github — сразу к моделям.
+          if ((await backend.gitStatus()).repo) {
+            await backend.gitEnable();
+            const gh = await backend.githubStatus().catch(() => null);
+            step = gh?.signed_in && gh.remote ? "models" : "github";
+          } else step = "git";
         } else if (to === "git") {
           await backend.gitEnable();
           step = "github";

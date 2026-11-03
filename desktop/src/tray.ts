@@ -4,6 +4,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { languageFor, setLanguage } from "./i18n";
+import { hello } from "./platform";
 
 interface Item { id: string; kind: "login" | "totp" | "secret"; title: string; username: string; url: string }
 interface State { exists: boolean; remembered: boolean; unlocked: boolean; hello: boolean; vault: boolean }
@@ -25,7 +26,7 @@ async function paint() {
         <div class="tray-list">${found.map((i) => `<button class="tray-row" data-copy="${i.id}"><div><span>${esc(i.title)}</span><small>${esc(i.username)}</small></div>
           ${i.kind === "totp" ? `<b>${codes[i.id] ?? "—"}</b>` : ""}<small>${copied === i.id ? "скопировано" : "скопировать"}</small></button>`).join("")}</div>
         <button class="quiet" data-act="lock">закрыть сейф</button>`;
-    } else if (s.remembered && s.hello) body = `<button class="pill" data-act="hello">открыть по windows hello</button>`;
+    } else if (s.remembered && s.hello) body = `<button class="pill" data-act="hello">открыть по ${hello}</button>`;
     else if (s.exists) body = `<form data-form><input class="safe-input" type="password" name="p" placeholder="мастер-пароль"></form>`;
     else body = `<small>сейфа ещё нет — создай его в разделе «пароли»</small>`;
   }

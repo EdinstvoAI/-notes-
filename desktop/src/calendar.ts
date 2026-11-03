@@ -7,6 +7,7 @@
 
 import type { Api, TaskRow } from "./api";
 import { icon } from "./icons";
+import { os } from "./platform";
 
 type Mode = "day" | "week" | "month";
 const MODES: [Mode, string][] = [["day", "день"], ["week", "неделя"], ["month", "месяц"]];
@@ -96,7 +97,7 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
       <button class="cal-today" data-cal="today">сегодня</button>
       <button class="icon-button" data-cal="next" title="вперёд">${icon("chevronRight")}</button>
       <button class="icon-button" data-cal="new" title="новая задача">${icon("plus")}</button>
-      <button class="cal-today" data-cal="ics" title="задачи в Календарь Windows или Outlook: откройте файл .ics">.ics</button>
+      <button class="cal-today" data-cal="ics" title="${os("задачи в Календарь Windows или Outlook: откройте файл .ics", "задачи в Календарь: откройте файл .ics")}">.ics</button>
       <div class="cal-modes">${MODES.map(([m, t]) => `<button class="cal-mode${m === view.mode ? " on" : ""}" data-mode="${m}">${t}</button>`).join("")}</div>
     </div>`;
 

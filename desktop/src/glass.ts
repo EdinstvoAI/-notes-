@@ -73,6 +73,7 @@ export function paintGlass(hosts: HTMLElement[], source: HTMLCanvasElement, dark
   const base = source.getBoundingClientRect();
   for (const l of lenses) {
     const { gl, prog, canvas, host } = l;
+    if (!canvas.isConnected) host.prepend(canvas);
     const r = host.getBoundingClientRect();
     canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
     gl.viewport(0, 0, canvas.width, canvas.height);
