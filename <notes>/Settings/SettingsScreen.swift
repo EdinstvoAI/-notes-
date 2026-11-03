@@ -243,7 +243,6 @@ private struct GeneralPage: View {
     @State private var size = AppSettings.textSize
     @State private var spell = AppSettings.spellCheck
     @State private var intelligence = Intelligence.enabled
-    @State private var copied = false
 
     var body: some View {
         ChoiceRow(title: "тема", value: theme.rawValue, choices: AppSettings.Theme.allCases.map { ($0, $0.rawValue) }) {
@@ -261,16 +260,6 @@ private struct GeneralPage: View {
         }
         SwitchRow(title: "проверка орфографии", subtitle: "подчёркивать слова с ошибками", isOn: $spell) {
             AppSettings.spellCheck = $0; spell = $0
-        }
-        // MCP: нейронка запускает само приложение с --mcp (MyApp.swift). Команда — для Claude Code.
-        SettingRow(title: "нейронки (mcp)", subtitle: "claude, codex и другие ищут и пишут заметки") {
-            Button(copied ? "скопировано" : "скопировать команду") {
-                let app = Bundle.main.executablePath ?? ""
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString("claude mcp add notes -- '\(app)' --mcp", forType: .string)
-                copied = true
-            }
-            .buttonStyle(WhitePillStyle())
         }
         if let reason = Intelligence.unavailableReason {
             SettingRow(title: "apple intelligence", subtitle: reason) { EmptyView() }
@@ -301,7 +290,7 @@ private struct ChoiceRow<Value: Hashable>: View {
     }
 }
 
-private struct SwitchRow: View {
+struct SwitchRow: View {
     let title: String
     let subtitle: String
     @Binding var isOn: Bool

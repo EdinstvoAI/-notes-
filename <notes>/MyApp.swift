@@ -11,7 +11,11 @@ import SwiftUI
             FileHandle.standardError.write(Data("<notes>: хранилище не выбрано — открой приложение\n".utf8))
             exit(1)
         }
-        MCPServer(library: NoteLibrary(root: vault)).run()
+        let log = MCPLog.url
+        MCPServer(library: NoteLibrary(root: vault), allowWrites: !MCPLog.readOnly,
+                  hiddenFolders: MCPLog.hiddenFolders) { tool, target in
+            MCPLog.append(tool, target, to: log)
+        }.run()
     }
 }
 
@@ -147,6 +151,7 @@ private struct RootView: View {
             case "video": model.section = .video
             case "settings": model.section = .settings
             case "sync": model.section = .sync
+            case "mcp": model.section = .mcp
             default: break
             }
             if let page = UserDefaults.standard.string(forKey: "settingsPage").flatMap(NotesModel.SettingsPage.init) {

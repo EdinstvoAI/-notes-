@@ -500,6 +500,22 @@
         }
       }
     },
+    "claude, codex и другие ищут и пишут заметки — на этом mac, без сети": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "claude, codex and others search and write notes — on this mac, no network"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "claude, codex i drugi traže i pišu beleške — na ovom macu, bez mreže"
+          }
+        }
+      }
+    },
     "enter, чтобы добавить": {
       "localizations": {
         "en": {
@@ -2103,6 +2119,22 @@
         }
       }
     },
+    "вставь в ~/.cursor/mcp.json": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "paste into ~/.cursor/mcp.json"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nalepi u ~/.cursor/mcp.json"
+          }
+        }
+      }
+    },
     "всё распознаётся на этом mac, без интернета": {
       "localizations": {
         "en": {
@@ -2316,7 +2348,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "select"
+            "value": "choose"
           }
         },
         "sr-Latn": {
@@ -2919,6 +2951,22 @@
         }
       }
     },
+    "закрытые папки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hidden folders"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "skriveni folderi"
+          }
+        }
+      }
+    },
     "закрыть": {
       "localizations": {
         "en": {
@@ -3363,6 +3411,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "kod je istekao"
+          }
+        }
+      }
+    },
+    "команда в терминал, один раз": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a terminal command, once"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "komanda u terminal, jednom"
           }
         }
       }
@@ -4023,6 +4087,38 @@
         }
       }
     },
+    "нейронка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ai agent"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ai agent"
+          }
+        }
+      }
+    },
+    "нейронка ищет и читает, но не создаёт заметки и задачи": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the agent searches and reads but doesn't create notes or tasks"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "agent traži i čita, ali ne pravi beleške ni zadatke"
+          }
+        }
+      }
+    },
     "нейронки (mcp)": {
       "localizations": {
         "en": {
@@ -4083,6 +4179,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "nema pristupa kalendaru"
+          }
+        }
+      }
+    },
+    "нет — видно всё хранилище": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "none — the whole vault is visible"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nema — vidi se ceo trezor"
           }
         }
       }
@@ -4791,6 +4903,22 @@
         }
       }
     },
+    "планировщик задач": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "task planner"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "planer zadataka"
+          }
+        }
+      }
+    },
     "повтори пинкод": {
       "localizations": {
         "en": {
@@ -4823,6 +4951,22 @@
         }
       }
     },
+    "подключение": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "connection"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "povezivanje"
+          }
+        }
+      }
+    },
     "подключено": {
       "localizations": {
         "en": {
@@ -4835,6 +4979,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "povezano"
+          }
+        }
+      }
+    },
+    "подключить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "connect"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "poveži"
           }
         }
       }
@@ -4871,6 +5031,22 @@
         }
       }
     },
+    "пока не было": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "none yet"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "još nema"
+          }
+        }
+      }
+    },
     "пока пусто, положи сюда .md": {
       "localizations": {
         "en": {
@@ -4903,6 +5079,22 @@
         }
       }
     },
+    "помощник по заметкам": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "notes assistant"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pomoćnik za beleške"
+          }
+        }
+      }
+    },
     "после блокировки mac или 15 минут без дела": {
       "localizations": {
         "en": {
@@ -4931,6 +5123,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "posle ponovnog pokretanja"
+          }
+        }
+      }
+    },
+    "последние обращения": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "recent requests"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nedavni zahtevi"
           }
         }
       }
@@ -5127,6 +5335,22 @@
         }
       }
     },
+    "промт": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "prompt"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "prompt"
+          }
+        }
+      }
+    },
     "пропустить, настрою потом": {
       "localizations": {
         "en": {
@@ -5251,6 +5475,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "jednom na sat"
+          }
+        }
+      }
+    },
+    "разбор входящих": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sort the inbox"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sređivanje prijemnog"
           }
         }
       }
@@ -5655,6 +5895,22 @@
         }
       }
     },
+    "скопировать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "copy"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kopiraj"
+          }
+        }
+      }
+    },
     "скопировать код": {
       "localizations": {
         "en": {
@@ -5959,6 +6215,22 @@
         }
       }
     },
+    "только .md внутри хранилища: без .git, скрытых папок, ссылок наружу и закрытых папок": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "only .md inside the vault: no .git, hidden folders, outside links or hidden folders you chose"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "samo .md u trezoru: bez .git, skrivenih foldera, linkova napolje i zatvorenih foldera"
+          }
+        }
+      }
+    },
     "только на этом mac": {
       "localizations": {
         "en": {
@@ -5987,6 +6259,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "samo ruski, sa interpunkcijom"
+          }
+        }
+      }
+    },
+    "только чтение": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "read only"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "samo čitanje"
           }
         }
       }
@@ -6151,6 +6439,38 @@
         }
       }
     },
+    "установить скилл": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "install skill"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "instaliraj skill"
+          }
+        }
+      }
+    },
+    "установлен": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "installed"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "instaliran"
+          }
+        }
+      }
+    },
     "файл недоступен, добавь заново": {
       "localizations": {
         "en": {
@@ -6211,6 +6531,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "boja"
+          }
+        }
+      }
+    },
+    "что доступно": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "what's accessible"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "šta je dostupno"
           }
         }
       }

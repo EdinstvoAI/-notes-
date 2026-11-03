@@ -4,7 +4,7 @@ import Foundation
 // Application Support общий для всех программ — поэтому подпапка по идентификатору приложения.
 // Модели и расшифровки, скачанные и сделанные в песочнице, при первом запуске переезжают сюда.
 enum AppSupport {
-    static let folder: URL = {
+    nonisolated static let folder: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let url = base.appendingPathComponent(Bundle.main.bundleIdentifier ?? "notes", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

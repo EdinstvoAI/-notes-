@@ -6,8 +6,25 @@ import Foundation
 // как после любой правки снаружи.
 public struct MCPServer {
     public let library: NoteLibrary
+    // «Только чтение» в разделе MCP: инструменты записи не видны и не работают.
+    public let allowWrites: Bool
+    // Журнал обращений для раздела MCP: инструмент и путь или запрос, без текста заметок.
+    public let log: (@Sendable (String, String) -> Void)?
 
-    public init(library: NoteLibrary) { self.library = library }
+    // Папки, закрытые для нейронок (раздел MCP): их заметок не видно ни в поиске, ни в списке, ни по пути.
+    public let hiddenFolders: Set<String>
+
+    public init(library: NoteLibrary, allowWrites: Bool = true, hiddenFolders: Set<String> = [],
+                log: (@Sendable (String, String) -> Void)? = nil) {
+        self.library = library
+        self.hiddenFolders = hiddenFolders
+        self.allowWrites = allowWrites
+        self.log = log
+    }
+
+    static let writeTools: Set<String> = ["create_note", "add_task"]
+    // Больше — не отдаём: нейронке хватит, а случайно не утянет гигантский файл.
+    static let maxRead = 200_000
 
     static let version = "2025-06-18"
 
@@ -42,7 +59,7 @@ public struct MCPServer {
         case "ping":
             reply["result"] = [String: Any]()
         case "tools/list":
-            reply["result"] = ["tools": Self.tools]
+            reply["result"] = ["tools": Self.tools.filter { allowWrites || !Self.writeTools.contains($0["name"] as? String ?? "") }]
         case "tools/call":
             let name = params["name"] as? String ?? ""
             let args = params["arguments"] as? [String: Any] ?? [:]
@@ -63,20 +80,24 @@ public struct MCPServer {
     }
 
     func call(_ name: String, _ args: [String: Any]) throws -> String {
+        log?(name, (args["path"] ?? args["note"] ?? args["query"] ?? args["title"] ?? args["folder"] ?? "") as? String ?? "")
+        if Self.writeTools.contains(name) && !allowWrites { throw Failure("запись выключена: включено «только чтение»") }
         switch name {
         case "search_notes":
             let query = try Self.string(args, "query")
-            let hits = library.search(query, limit: args["limit"] as? Int ?? 20)
+            let hits = library.search(query, limit: 200).filter { inside($0.note.url) }.prefix(args["limit"] as? Int ?? 20)
             if hits.isEmpty { return "ничего не нашлось" }
             return hits.map { "\(relative($0.note.url)) — \($0.snippet)" }.joined(separator: "\n")
         case "list_notes":
             let folder = try url(args["folder"] as? String ?? "", directory: true)
             let notes = library.allNotes(in: NoteLibrary(root: folder).tree())
+                .filter { inside($0.url) }
                 .sorted { $0.modified > $1.modified }
             if notes.isEmpty { return "заметок нет" }
             return notes.map { relative($0.url) }.joined(separator: "\n")
         case "read_note":
-            return try library.read(url(try Self.string(args, "path")))
+            let text = try library.read(url(try Self.string(args, "path")))
+            return text.count > Self.maxRead ? String(text.prefix(Self.maxRead)) + "\n…(обрезано)" : text
         case "create_note":
             let title = try Self.string(args, "title")
             let folder = try url(args["folder"] as? String ?? "", directory: true)
@@ -87,7 +108,7 @@ public struct MCPServer {
             return "создана \(relative(note))"
         case "list_tasks":
             let open = args["include_done"] as? Bool != true
-            let tasks = NoteTasks.all(in: library).filter { !open || !$0.done }
+            let tasks = NoteTasks.all(in: library).filter { (!open || !$0.done) && inside($0.note) }
             if tasks.isEmpty { return "задач нет" }
             return tasks.map { task in
                 let due = task.due.map { " 📅 " + NoteTasks.format($0, withTime: task.hasTime) } ?? ""
@@ -114,16 +135,24 @@ public struct MCPServer {
         let clean = path.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
         let url = (clean.isEmpty ? library.root : library.root.appendingPathComponent(clean, isDirectory: directory))
             .standardizedFileURL
-        guard url.path == library.root.path || url.path.hasPrefix(library.root.path + "/") else {
-            throw Failure("путь вне хранилища: \(path)")
+        // Ссылка внутри хранилища может вести наружу — проверяем и настоящий путь, после ссылок.
+        let realRoot = library.root.resolvingSymlinksInPath().path
+        for candidate in [url.path, url.resolvingSymlinksInPath().path] {
+            let base = candidate == url.path ? library.root.path : realRoot
+            guard candidate == base || candidate.hasPrefix(base + "/") else { throw Failure("путь вне хранилища: \(path)") }
         }
         guard !url.pathComponents.contains(where: { $0.hasPrefix(".") }) else { throw Failure("скрытый путь: \(path)") }
+        let first = relative(url).split(separator: "/").first.map(String.init) ?? ""
+        guard !hiddenFolders.contains(first) else { throw Failure("папка закрыта для нейронок: \(first)") }
         guard directory || url.pathExtension.lowercased() == "md" else { throw Failure("нужен путь к .md: \(path)") }
         return url
     }
 
+    // Поиск, список и задачи идут по дереву, а оно видит и ссылки наружу — отсеиваем той же проверкой.
+    func inside(_ note: URL) -> Bool { (try? url(relative(note))) != nil }
+
     func relative(_ url: URL) -> String {
-        String(url.standardizedFileURL.path.dropFirst(library.root.path.count + 1))
+        String(url.standardizedFileURL.path.dropFirst(library.root.path.count + 1).drop { $0 == "/" })
     }
 
     static func string(_ args: [String: Any], _ key: String) throws -> String {

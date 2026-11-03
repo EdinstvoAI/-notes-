@@ -48,4 +48,39 @@ struct MCPServerTests {
         #expect(call(s, "read_note", ["path": ".git/config.md"]).1)
         #expect(call(s, "read_note", ["path": "проекты/план.txt"]).1)
     }
+
+    // Ссылка в хранилище на файл снаружи: раньше путь «внутри» проходил проверку и сервер читал чужое.
+    @Test("ссылка наружу не читается")
+    func symlink() throws {
+        let s = try server()
+        let outside = FileManager.default.temporaryDirectory.appendingPathComponent("secret-\(UUID().uuidString).md")
+        try "секрет".write(to: outside, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("ссылка.md"), withDestinationURL: outside)
+        #expect(call(s, "read_note", ["path": "ссылка.md"]).1)
+        #expect(!call(s, "search_notes", ["query": "секрет"]).0.contains("секрет"))
+    }
+
+    @Test("только чтение: записи нет ни в списке, ни в вызове; журнал без текста")
+    func readOnly() throws {
+        final class Box: @unchecked Sendable { var lines: [String] = [] }
+        let box = Box()
+        let base = try server()
+        let s = MCPServer(library: base.library, allowWrites: false) { box.lines.append("\($0) \($1)") }
+        #expect(!s.handle(#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#)!.contains("create_note"))
+        #expect(call(s, "create_note", ["title": "x", "text": "тайна"]).1)
+        #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("x.md").path))
+        _ = call(s, "read_note", ["path": "проекты/план.md"])
+        #expect(box.lines.last == "read_note проекты/план.md")
+        #expect(!box.lines.joined().contains("тайна"))
+    }
+
+    @Test("закрытая папка не видна ни поиском, ни по пути, и туда не пишется")
+    func hidden() throws {
+        let base = try server()
+        let s = MCPServer(library: base.library, hiddenFolders: ["проекты"])
+        #expect(call(s, "search_notes", ["query": "хлеб"]).0 == "ничего не нашлось")
+        #expect(call(s, "read_note", ["path": "проекты/план.md"]).1)
+        #expect(call(s, "create_note", ["title": "x", "folder": "проекты"]).1)
+        #expect(!call(s, "list_notes", [:]).0.contains("проекты"))
+    }
 }

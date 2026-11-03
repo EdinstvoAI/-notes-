@@ -42,7 +42,7 @@ import SwiftUI
     private var editGeneration = 0
 
     // Раздел окна: шапка переключает заметки, задачи, календарь и видео; настройки — по ⌘,.
-    enum Section: Hashable { case notes, tasks, calendar, video, settings, sync }
+    enum Section: Hashable { case notes, tasks, calendar, video, settings, sync, mcp }
     var section: Section = .notes
     let tasks: TasksModel
     let video: VideoModel

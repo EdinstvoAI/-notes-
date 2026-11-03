@@ -155,7 +155,7 @@ private struct TopBar: View {
 
     // Разделы в шапке: все со словами → гибрид (значки, слово только у выбранного) → только значки.
     enum Fit { case full, hybrid, icons }
-    private static let titles = ["заметки", "задачи", "календарь", "видео", "синхронизация", "настройки"]
+    private static let titles = ["заметки", "задачи", "календарь", "видео", "синхронизация", "mcp", "настройки"]
 
     var body: some View {
         GeometryReader { geo in
@@ -306,6 +306,7 @@ private struct TopBar: View {
         case .video: "видео"
         case .settings: "настройки"
         case .sync: "синхронизация"
+        case .mcp: "mcp"
         }
     }
 
@@ -325,6 +326,7 @@ private struct TopBar: View {
             section("видео", .video, .video, fit)
             // Синхронизация — своим разделом, а не кликом по статусу (03.11.2026, «статус не кликабельный»).
             section("синхронизация", .git, .sync, fit)
+            section("mcp", .spark, .mcp, fit)
             section("настройки", .settings, .settings, fit)
         }
     }
@@ -506,6 +508,7 @@ struct SectionContent: View {
                 case .video: VideoScreen(model: model)
                 case .settings: SettingsScreen(model: model)
                 case .sync: SyncScreen(model: model)
+                case .mcp: MCPScreen(model: model)
                 }
             }
             // Раздел, заметка или папка сменились — старое уходит в размытие, новое из него проявляется,
@@ -550,7 +553,7 @@ struct SectionContent: View {
                 case .video:
                     IconButton(glyph: .plus, help: "добавить видео или аудио") { model.video.choose() }
                         .keyboardShortcut("n", modifiers: .command)
-                case .settings, .sync:
+                case .settings, .sync, .mcp:
                     EmptyView()
                 }
             }
@@ -577,6 +580,7 @@ struct SectionContent: View {
         case .video: model.video.crumb
         case .settings: String(localized: "настройки / ") + model.settingsPage.rawValue.localized
         case .sync: String(localized: "синхронизация")
+        case .mcp: "mcp"
         }
     }
 }
@@ -783,6 +787,8 @@ struct SectionSidebar: View {
             }
         case .sync:
             SyncSidebar(model: model)
+        case .mcp:
+            MCPSidebar(model: model)
         case .settings:
             SidebarList(title: "настройки") {
                 ForEach(NotesModel.SettingsPage.allCases, id: \.self) { page in
