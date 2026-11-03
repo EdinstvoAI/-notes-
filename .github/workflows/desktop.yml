@@ -46,3 +46,39 @@ jobs:
             desktop/target/release/bundle/msi/*.msi
             desktop/target/release/bundle/dmg/*.dmg
           if-no-files-found: warn
+
+  # Самопроверка настоящего окна на Windows: тот же сценарий, что в облаке на Linux (NOTES_SELFTEST),
+  # на тестовой папке. Без моделей (качать гигабайты в CI незачем) — надиктовка и смысл пропускаются.
+  selftest-windows:
+    needs: test
+    runs-on: windows-latest
+    defaults: { run: { working-directory: desktop, shell: pwsh } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npx tauri build --no-bundle
+      - name: Test vault
+        run: |
+          $v = "$env:RUNNER_TEMP\vault"
+          New-Item -ItemType Directory -Force "$v\проекты" | Out-Null
+          Copy-Item src-tauri\icons\128x128.png "$v\проекты\иконка.png"
+          Set-Content -Encoding utf8NoBOM "$v\проекты\план.md" "# План`n`n- [ ] проверить на Windows 📅 $(Get-Date -Format yyyy-MM-dd) 15:00`n"
+          Set-Content -Encoding utf8NoBOM "$v\Входящие.md" "- [ ] купить хлеб`n"
+          $cfg = "$env:APPDATA\ai.edinstvo.notes"
+          New-Item -ItemType Directory -Force $cfg | Out-Null
+          Set-Content -NoNewline -Encoding utf8NoBOM "$cfg\vault-path" $v
+      - name: Self-test
+        run: |
+          $env:NOTES_SELFTEST = "1"
+          $env:NOTES_SELFTEST_LOG = "$env:RUNNER_TEMP\selftest.log"
+          $p = Start-Process -FilePath target\release\notes-desktop.exe -PassThru
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); Write-Error "self-test timed out" }
+          Get-Content $env:NOTES_SELFTEST_LOG
+          $log = Get-Content $env:NOTES_SELFTEST_LOG -Raw
+          if ($log -match "FAIL" -or $log -notmatch "selftest: (\d+)/\1") { exit 1 }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: selftest-windows, path: "${{ runner.temp }}/selftest.log", if-no-files-found: warn }
