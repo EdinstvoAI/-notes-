@@ -16,6 +16,8 @@ const INBOX = "Входящие.md";
 
 export interface TasksHost {
   backend: Api;
+  /** Задачи без исключённых папок (настройки → календарь). */
+  tasks(): Promise<TaskRow[]>;
   openNote(path: string): Promise<void>;
   /** Сколько открытых — в шапку боковой панели и путь. */
   onFilter(title: string): void;
@@ -100,7 +102,7 @@ export function mountTasks(root: HTMLElement, sidebar: HTMLElement, host: TasksH
   }
 
   async function reload() {
-    all = await host.backend.tasks();
+    all = await host.tasks();
     renderSidebar();
     renderList();
   }

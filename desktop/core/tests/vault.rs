@@ -164,3 +164,14 @@ fn edit_task_lines() {
         "- [x] купить хлеб 📅 2026-11-05 15:00–16:30\n- [ ] позвонить 📅 2026-11-06\n");
     assert_eq!(fs::read_to_string(d.path().join("новое.md")).unwrap(), "- [ ] первая\n");
 }
+
+#[test]
+fn rename_and_delete_task() {
+    let (d, v) = vault();
+    fs::write(d.path().join("Входящие.md"), "- [ ] старое !! 📅 2026-11-02 10:00\n- [ ] второе\n").unwrap();
+    let (_, t) = v.tasks().into_iter().find(|(p, t)| p == "Входящие.md" && t.line == 0).unwrap();
+    v.set_task_title("Входящие.md", 0, &t.raw, " новое ").unwrap();
+    assert_eq!(fs::read_to_string(d.path().join("Входящие.md")).unwrap(), "- [ ] новое !! 📅 2026-11-02 10:00\n- [ ] второе\n");
+    v.delete_task("Входящие.md", 0, "- [ ] новое !! 📅 2026-11-02 10:00").unwrap();
+    assert_eq!(fs::read_to_string(d.path().join("Входящие.md")).unwrap(), "- [ ] второе\n");
+}

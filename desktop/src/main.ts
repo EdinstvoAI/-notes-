@@ -288,7 +288,7 @@ async function mountPreview() {
 function mountSection() {
   void mountPreview();
   const cal = page.querySelector<HTMLElement>(".cal-root");
-  if (cal) mountCalendar(cal, { backend, openNote });
+  if (cal) mountCalendar(cal, { backend, openNote, tasks: visibleTasks });
   const tasks = page.querySelector<HTMLElement>(".tasks-root");
   const video = page.querySelector<HTMLElement>(".video-root");
   if (video) void mountVideo(video, sidebar, { openNote, reload, onCrumb: (t) => (crumb.textContent = t), inTauri: backend.inTauri });
@@ -296,7 +296,7 @@ function mountSection() {
   if (settings) void mountSettings(settings, sidebar, { backend, onCrumb: (t) => (crumb.textContent = t), apply: applyPrefs,
     pickVault: async () => { const tree = await backend.pickVault(); if (tree) { state.tree = tree; state.tabs = []; state.selection = { kind: "folder", path: "" }; await reload(); } render(); },
     ensureFolder, refreshSync, sync: async () => { await syncWithGithub(); await refreshSync(); } });
-  tasksScreen = tasks ? mountTasks(tasks, sidebar, { backend, openNote, onFilter: (t) => (crumb.textContent = t), undoable }) : null;
+  tasksScreen = tasks ? mountTasks(tasks, sidebar, { backend, openNote, tasks: visibleTasks, onFilter: (t) => (crumb.textContent = t), undoable }) : null;
 }
 
 function renderContent() {
@@ -532,6 +532,12 @@ async function refreshSync() {
   fitHeader();
 }
 setInterval(() => void refreshSync(), 30_000);
+
+// «Задачи из папок» (как на маке): задачи из выключенных папок верхнего уровня не идут в задачи и календарь.
+async function visibleTasks() {
+  const off = new Set(prefs.excludedFolders ?? []);
+  return (await backend.tasks()).filter((t) => !off.has(t.note.split("/")[0]) || !t.note.includes("/"));
+}
 
 // ——— шаблоны: папка «шаблоны» хранилища, подстановки дата/время/название ———
 const now = () => {

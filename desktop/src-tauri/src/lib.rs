@@ -187,6 +187,16 @@ fn set_done(path: String, line: usize, raw: String, done: bool, state: State<App
 }
 
 #[tauri::command]
+fn set_task_title(path: String, line: usize, raw: String, title: String, state: State<AppState>) -> Result<(), String> {
+    with_vault(&state, |v| v.set_task_title(&path, line, &raw, &title).map_err(|e| e.to_string()))
+}
+
+#[tauri::command]
+fn delete_task(path: String, line: usize, raw: String, state: State<AppState>) -> Result<(), String> {
+    with_vault(&state, |v| v.delete_task(&path, line, &raw).map_err(|e| e.to_string()))
+}
+
+#[tauri::command]
 fn append_task(path: String, title: String, date: Option<String>, time: Option<String>, minutes: Option<u32>, state: State<AppState>) -> Result<(), String> {
     with_vault(&state, |v| v.append_task(&path, &title, date.as_deref(), time.as_deref(), minutes).map_err(|e| e.to_string()))
 }
@@ -744,7 +754,7 @@ pub fn run() {
             open_vault, create_vault, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
             create_folder, duplicate, move_into, copy_in, trash, untrash, reveal, open_default, absolute, pins, set_pins,
             templates, create_from_template, daily,
-            set_due, set_done, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, selftest, selftest_slow, selftest_log, selftest_env,
+            set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, selftest, selftest_slow, selftest_log, selftest_env,
             github_status, github_code, github_finish, github_cancel, github_sign_out, github_sync, open_github,
             lock_state, lock_seen, lock_needed_on_return, pin_set, pin_clear, pin_check, hello_verify,
             dictation_toggle, models, model_download, model_remove, dictation_test,

@@ -52,6 +52,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   let prefs = await host.backend.prefs();
   const vault = await host.backend.vaultPath();
   let git = await host.backend.gitStatus();
+  const folders = (await host.backend.tree().catch(() => null))?.folders.map((f) => f.name) ?? [];
   const { invoke } = await import("@tauri-apps/api/core");
   type ModelInfo = { id: string; installed: boolean; download_mb: number };
   let models: ModelInfo[] = host.backend.inTauri ? await invoke<ModelInfo[]>("models") : [];
@@ -104,6 +105,8 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       case "calendar":
         return row("календарь в приложении", "задачи с 📅 из заметок: день, неделя, месяц", granted("включено"))
           + row(isMac ? "календарь apple" : "календарь windows и outlook", isMac ? "переезжает с мака" : "файл .ics со всеми задачами со сроком", isMac ? later() : pill("ics", "сохранить .ics"))
+          + `<div class="caption-line">задачи из папок</div>`
+          + folders.map((f) => row(esc(f), "задачи этой папки — в задачах и календаре", toggle(`folder:${f}`, !(prefs.excludedFolders ?? []).includes(f)))).join("")
           + note(isMac ? "" : "системный календарь windows закрыт для приложений не из store — поэтому .ics");
       case "dictation": {
         const hotkey = recording ? "нажмите сочетание…" : (prefs.hotkey ?? (isMac ? "alt+space" : "ctrl+alt+space")).split("+").join(" + ");
@@ -167,6 +170,13 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   root.addEventListener("click", async (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>("button");
     if (!b) return;
+    if (b.dataset.toggle?.startsWith("folder:")) {
+      const f = b.dataset.toggle.slice(7);
+      const off = new Set(prefs.excludedFolders ?? []);
+      if (off.has(f)) off.delete(f); else off.add(f);
+      await save({ ...prefs, excludedFolders: [...off] });
+      return;
+    }
     if (b.dataset.toggle === "autostart") {
       await invoke("set_autostart", { on: !autostartOn }).catch(() => {});
       autostartOn = await invoke<boolean>("autostart");

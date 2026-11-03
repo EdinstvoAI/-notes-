@@ -37,6 +37,8 @@ export interface Prefs {
   maxMinutes?: number;
   /** Как часто забирать и отправлять на GitHub, минуты. */
   pushMinutes?: number;
+  /** Папки верхнего уровня, задачи из которых не идут в задачи и календарь (как «задачи из папок» на маке). */
+  excludedFolders?: string[];
 }
 
 export interface GithubStatus { signed_in: boolean; remote: string | null; unpushed: boolean }
@@ -86,6 +88,8 @@ export interface Api {
   exportIcs(): Promise<boolean>;
   setDue(task: TaskRow, date: string | null, time: string | null, minutes: number | null): Promise<void>;
   setDone(task: TaskRow, done: boolean): Promise<void>;
+  setTitle(task: TaskRow, title: string): Promise<void>;
+  deleteTask(task: TaskRow): Promise<void>;
   appendTask(path: string, title: string, date: string | null, time: string | null, minutes: number | null): Promise<void>;
   createFromTemplate(template: string, folder: string, date: string, time: string): Promise<string>;
   daily(date: string, time: string): Promise<string>;
@@ -146,6 +150,8 @@ async function tauriApi(): Promise<Api> {
     },
     setDue: (t, date, time, minutes) => invoke<void>("set_due", { path: t.note, line: t.line, raw: t.raw, date, time, minutes }),
     setDone: (t, done) => invoke<void>("set_done", { path: t.note, line: t.line, raw: t.raw, done }),
+    setTitle: (t, title) => invoke<void>("set_task_title", { path: t.note, line: t.line, raw: t.raw, title }),
+    deleteTask: (t) => invoke<void>("delete_task", { path: t.note, line: t.line, raw: t.raw }),
     appendTask: (path, title, date, time, minutes) => invoke<void>("append_task", { path, title, date, time, minutes }),
     createFromTemplate: (template, folder, date, time) => invoke<string>("create_from_template", { template, folder, date, time }),
     daily: (date, time) => invoke<string>("daily", { date, time }),
@@ -313,6 +319,16 @@ const demoApi: Api = {
     const lines = (demo[task.note] ?? "").split("\n");
     if (lines[task.line] !== task.raw) throw new Error("the note changed on disk");
     lines[task.line] = lines[task.line].replace(/\[[ xX]\]/, done ? "[x]" : "[ ]");
+    demo[task.note] = lines.join("\n");
+  },
+  async setTitle(task, title) {
+    const lines = (demo[task.note] ?? "").split("\n");
+    lines[task.line] = lines[task.line].replace(task.title, title.trim());
+    demo[task.note] = lines.join("\n");
+  },
+  async deleteTask(task) {
+    const lines = (demo[task.note] ?? "").split("\n");
+    lines.splice(task.line, 1);
     demo[task.note] = lines.join("\n");
   },
   async appendTask(path, title, date, time, minutes) {

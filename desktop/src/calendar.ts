@@ -15,6 +15,8 @@ const INBOX = "Входящие.md";
 
 export interface CalendarHost {
   backend: Api;
+  /** Задачи без исключённых папок (настройки → календарь). */
+  tasks(): Promise<TaskRow[]>;
   openNote(path: string): Promise<void>;
 }
 
@@ -99,7 +101,7 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
         return `<div class="cal-event${t.done ? " done" : ""}${t.urgent ? " urgent" : ""}${short ? " short" : ""}" data-task="${tasks.indexOf(t)}"
           style="top:${top}px;height:${height}px;left:calc(${(lane / of) * 100}% + 2px);width:calc(${100 / of}% - 4px)"
           title="${esc(t.title)} · ${t.time}–${end}">
-          <span>${esc(t.title)}</span><small>${t.time}${short ? "" : "–" + end}</small></div>`;
+          <span>${esc(t.title)}</span><small>${t.time}${short ? "" : "–" + end}</small><i class="cal-resize"></i></div>`;
       }).join("");
       const now = key === today ? `<div class="cal-now" style="top:${((new Date().getHours() * 60 + new Date().getMinutes()) / 60) * HOUR}px"></div>` : "";
       return `<div class="cal-col${key === today ? " today" : ""}" data-day="${key}">${events}${now}</div>`;
@@ -133,7 +135,7 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
   }
 
   async function render(keepScroll = false) {
-    tasks = await host.backend.tasks();
+    tasks = await host.tasks();
     const scroll = root.querySelector<HTMLElement>(".cal-scroll")?.scrollTop;
     root.innerHTML = `<div class="cal">
       <header class="cal-head"><div><h1>${title()}</h1><p>задачи с датой из заметок</p></div>${controls()}</header>
@@ -167,6 +169,33 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
     };
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") void finish(true); if (e.key === "Escape") void finish(false); });
     input.addEventListener("blur", () => void finish(true));
+  }
+
+  // Карточка события (EventCard на маке): название правится прямо тут, «открыть заметку», «удалить».
+  function card(task: TaskRow, x: number, y: number) {
+    root.querySelector(".cal-draft")?.remove();
+    const box = document.createElement("div");
+    box.className = "cal-draft";
+    const when = `${new Date(task.date + "T12:00").toLocaleDateString("ru", { day: "numeric", month: "long" })}${task.time ? `, ${task.time}–${hhmm(Math.min(toMin(task.time) + (task.minutes ?? 60), 1439))}` : ""}`;
+    box.innerHTML = `<input value="${esc(task.title)}" spellcheck="false"><small>${when} · ${esc(task.note.replace(/\.md$/, ""))}</small>
+      <div class="cal-card-actions"><button class="pill" data-card="open">открыть заметку</button><button class="pill danger" data-card="delete">удалить</button></div>`;
+    const r = root.getBoundingClientRect();
+    box.style.left = `${Math.min(x - r.left, r.width - 260)}px`;
+    box.style.top = `${Math.min(y - r.top, r.height - 140)}px`;
+    root.append(box);
+    const input = box.querySelector("input")!;
+    input.addEventListener("keydown", async (k) => {
+      if (k.key === "Enter" && input.value.trim() && input.value.trim() !== task.title) { await host.backend.setTitle(task, input.value).catch(() => {}); await render(true); }
+      if (k.key === "Escape") box.remove();
+    });
+    box.addEventListener("click", async (e) => {
+      const act = (e.target as HTMLElement).closest<HTMLElement>("[data-card]")?.dataset.card;
+      if (act === "open") await host.openNote(task.note);
+      if (act === "delete") { await host.backend.deleteTask(task).catch(() => {}); await render(true); }
+    });
+    setTimeout(() => addEventListener("pointerdown", function close(ev) {
+      if (!box.contains(ev.target as Node)) { box.remove(); removeEventListener("pointerdown", close, true); }
+    }, true), 0);
   }
 
   root.addEventListener("click", async (e) => {
@@ -208,6 +237,24 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
     const task = tasks[Number(event.dataset.task)];
     if (!task) return;
     const timed = event.classList.contains("cal-event");
+    // Нижний край — растянуть: меняется только длительность, шаг 15 минут (как на маке).
+    if (timed && el.classList.contains("cal-resize")) {
+      down.preventDefault();
+      const top = event.getBoundingClientRect().top;
+      let minutes = task.minutes ?? 60;
+      const grow = (e: PointerEvent) => {
+        minutes = Math.max(15, Math.round(((e.clientY - top) / HOUR) * 4) * 15);
+        event.style.height = `${(minutes / 60) * HOUR - 2}px`;
+        event.querySelector("small")!.textContent = `${task.time}–${hhmm(Math.min(toMin(task.time!) + minutes, 1439))}`;
+      };
+      const stop = async () => {
+        removeEventListener("pointermove", grow); removeEventListener("pointerup", stop);
+        if (minutes !== (task.minutes ?? 60)) await host.backend.setDue(task, task.date, task.time, minutes).catch(() => {});
+        await render(true);
+      };
+      addEventListener("pointermove", grow); addEventListener("pointerup", stop);
+      return;
+    }
     const start = { x: down.clientX, y: down.clientY };
     // Где схватили событие — один раз, до сдвига: дальше его рамка уже едет вместе с мышью.
     const grab = timed ? down.clientY - event.getBoundingClientRect().top : 0;
@@ -237,7 +284,7 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
     const up = async () => {
       removeEventListener("pointermove", move);
       removeEventListener("pointerup", up);
-      if (!moved) { await host.openNote(task.note); return; }
+      if (!moved) { card(task, start.x, start.y); return; }
       if (!target) return render(true);
       const time = target.minutes === null ? null : hhmm(target.minutes);
       if (target.day !== task.date || time !== task.time) {

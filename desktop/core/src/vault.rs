@@ -322,6 +322,28 @@ impl Vault {
         })
     }
 
+    /// Новое название задачи — дата, «!!» и отметка остаются как были.
+    pub fn set_task_title(&self, rel: &str, line: usize, raw: &str, title: &str) -> Result<(), VaultError> {
+        let title = title.trim().to_string();
+        self.edit_task_line(rel, line, raw, |l| {
+            let head_end = l.find(']').map_or(0, |i| i + 1);
+            let tail = l.find("📅").map(|i| format!(" {}", &l[i..])).unwrap_or_default();
+            let urgent = if l[head_end..].contains("!!") { " !!" } else { "" };
+            format!("{} {title}{urgent}{tail}", &l[..head_end])
+        })
+    }
+
+    /// Удалить строку задачи из заметки (карточка события → «удалить»).
+    pub fn delete_task(&self, rel: &str, line: usize, raw: &str) -> Result<(), VaultError> {
+        let text = self.read(rel)?;
+        let mut lines: Vec<&str> = text.split('\n').collect();
+        if lines.get(line).map(|l| l.trim_end_matches('\r')) != Some(raw.trim_end_matches('\r')) {
+            return Err(VaultError::ChangedOnDisk);
+        }
+        lines.remove(line);
+        self.write(rel, &lines.join("\n"))
+    }
+
     /// Отметить задачу (не)сделанной — правим только квадратик.
     pub fn set_done(&self, rel: &str, line: usize, raw: &str, done: bool) -> Result<(), VaultError> {
         self.edit_task_line(rel, line, raw, |l| match l.find('[') {

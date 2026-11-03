@@ -451,3 +451,7 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 
 /* Плавная смена темы (ThemeCrossfade на маке). */
 .theming, .theming * { transition: background-color .5s ease, color .5s ease, box-shadow .5s ease, border-color .5s ease !important; }
+
+.cal-resize { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
+.cal-card-actions { display: flex; gap: 6px; margin-top: 10px; }
+.pill.danger { color: var(--coral); }
