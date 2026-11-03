@@ -34,12 +34,12 @@ jobs:
         run: |
           otool -L target/release/notes-desktop
           ! otool -L target/release/notes-desktop | grep -E "/opt/homebrew|/usr/local/"
-      # multi-v1.0.0-beta.2 → «<notes> v1.0.0 beta 2»
+      # multi-v1.1.2-beta → «<notes> v1.1.2 beta multi»
       - name: release name
         shell: bash
         run: |
           v="${GITHUB_REF_NAME#multi-}"; v="${v/-beta./ beta }"; v="${v/-beta/ beta}"
-          echo "NAME=<notes> $v" >> "$GITHUB_ENV"
+          echo "NAME=<notes> $v multi" >> "$GITHUB_ENV"
       - uses: softprops/action-gh-release@v2
         with:
           name: ${{ env.NAME }}
