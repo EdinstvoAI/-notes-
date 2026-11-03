@@ -1044,6 +1044,22 @@
         }
       }
     },
+    "Пароли → Файл → Экспортировать все пароли": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwords → File → Export All Passwords"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lozinke → Datoteka → Izvezi sve lozinke"
+          }
+        }
+      }
+    },
     "Переименование": {
       "localizations": {
         "en": {
@@ -3207,6 +3223,22 @@
         }
       }
     },
+    "из «Паролей» (csv)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "from Passwords (csv)"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iz „Lozinki“ (csv)"
+          }
+        }
+      }
+    },
     "изменено %@ · %@": {
       "localizations": {
         "en": {
@@ -5059,6 +5091,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "preimenuj"
+          }
+        }
+      }
+    },
+    "перенесено: %lld. удали CSV — в нём пароли открытым текстом": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "imported: %lld. delete the CSV — it holds passwords in plain text"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "uvezeno: %lld. obriši CSV — u njemu su lozinke kao običan tekst"
           }
         }
       }

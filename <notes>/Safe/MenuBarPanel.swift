@@ -14,7 +14,7 @@ import SwiftUI
         let name = "notes"
         let key = "NSStatusItem Preferred Position \(name)"
         if UserDefaults.standard.object(forKey: key) == nil { UserDefaults.standard.set(260, forKey: key) }
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.autosaveName = name
         item.button?.image = MenuBarPanel.icon
         item.button?.target = self
@@ -43,7 +43,11 @@ struct MenuBarPanel: View {
 
     // Значок — точечная иконка заметок из шапки, шаблоном: macOS сама красит под светлую и тёмную строку.
     @MainActor static let icon: NSImage = {
-        let image = ImageRenderer(content: DotIcon(glyph: .notes).foregroundStyle(.black)).nsImage ?? NSImage()
+        // «<n>» шрифтом логотипа (03.11.2026, «мб сделать иконку <n>»).
+        let renderer = ImageRenderer(content: Text("<n>").font(Martian.logo.font(15)).foregroundStyle(.black))
+        renderer.scale = 2
+        let image = renderer.nsImage ?? NSImage()
+        image.size = NSSize(width: image.size.width / 2, height: image.size.height / 2)
         image.isTemplate = true
         return image
     }()

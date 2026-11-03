@@ -84,6 +84,44 @@ public enum PasswordSafe {
         return SymmetricKey(data: key)
     }
 
+    // Импорт из «Паролей» Apple: Файл → «Экспортировать все пароли» даёт CSV
+    // Title,URL,Username,Password,Notes,OTPAuth. Пароль — записью «пароли», код 2FA — отдельной записью «коды».
+    public static func importPasswordsCSV(_ text: String) -> [SafeItem] {
+        let rows = csv(text)
+        guard let header = rows.first?.map({ $0.lowercased() }) else { return [] }
+        func column(_ name: String) -> Int? { header.firstIndex(of: name) }
+        let (t, u, n, p, note, otp) = (column("title"), column("url"), column("username"), column("password"), column("notes"), column("otpauth"))
+        var items: [SafeItem] = []
+        for row in rows.dropFirst() {
+            func value(_ i: Int?) -> String { i.flatMap { $0 < row.count ? row[$0] : nil } ?? "" }
+            let title = value(t).isEmpty ? value(u) : value(t)
+            if !value(p).isEmpty {
+                items.append(SafeItem(kind: .login, title: title, username: value(n), secret: value(p), url: value(u), note: value(note)))
+            }
+            if !value(otp).isEmpty {
+                items.append(SafeItem(kind: .totp, title: title, username: value(n), secret: value(otp)))
+            }
+        }
+        return items
+    }
+
+    // CSV с кавычками, запятыми и переносами внутри полей.
+    static func csv(_ text: String) -> [[String]] {
+        var rows: [[String]] = [], row: [String] = [], field = "", quoted = false
+        var chars = Array(text.replacingOccurrences(of: "\r\n", with: "\n"))[...]
+        while let c = chars.popFirst() {
+            if quoted {
+                if c == "\"" { if chars.first == "\"" { field.append("\""); chars.removeFirst() } else { quoted = false } }
+                else { field.append(c) }
+            } else if c == "\"" { quoted = true }
+            else if c == "," { row.append(field); field = "" }
+            else if c == "\n" { row.append(field); rows.append(row); row = []; field = "" }
+            else { field.append(c) }
+        }
+        if !field.isEmpty || !row.isEmpty { row.append(field); rows.append(row) }
+        return rows
+    }
+
     // Новый пароль: 20 знаков без похожих (0/O, 1/l), с цифрами и знаками.
     public static func generate(length: Int = 20) -> String {
         let chars = Array("abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789-_!@#%")

@@ -30,4 +30,15 @@ struct PasswordSafeTests {
         #expect(TOTP.code(secret: "otpauth://totp/x?secret=\(secret)&issuer=y", date: Date(timeIntervalSince1970: 59)) == "287082")
         #expect(TOTP.code(secret: "не base32") == nil)
     }
+
+    @Test("импорт CSV из «Паролей»: пароль и код 2FA, кавычки и запятые в полях")
+    func importCSV() {
+        let csv = "Title,URL,Username,Password,Notes,OTPAuth\r\n" +
+            "github.com,https://github.com,makark,\"p,a\"\"ss\",,otpauth://totp/x?secret=GEZDGNBVGY3TQOJQ\r\n" +
+            "почта,https://mail.ru,me,123,\"строка 1\nстрока 2\",\r\n"
+        let items = PasswordSafe.importPasswordsCSV(csv)
+        #expect(items.map(\.kind) == [.login, .totp, .login])
+        #expect(items[0].secret == "p,a\"ss")
+        #expect(items[2].note == "строка 1\nстрока 2")
+    }
 }

@@ -1,6 +1,7 @@
 import AppKit
 import NotesCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 // Раздел «пароли» (03.11.2026): сейф с мастер-паролем — пароли, коды 2FA, секреты. Мой экран на согласование.
 // Мастер-пароль живёт только в памяти, пока сейф открыт; копия в буфере стирается через минуту.
@@ -47,6 +48,18 @@ final class SafeModel {
         item.modified = Date()
         items[index] = item
         save(vault)
+    }
+
+    // Импорт CSV из «Паролей»: файл выбирает человек; после — напоминаем стереть его, он открытым текстом.
+    func importCSV(_ vault: URL) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.commaSeparatedText]
+        guard panel.runModal() == .OK, let url = panel.url,
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return }
+        let new = PasswordSafe.importPasswordsCSV(text)
+        items.insert(contentsOf: new, at: 0)
+        save(vault)
+        error = String(localized: "перенесено: \(new.count). удали CSV — в нём пароли открытым текстом")
     }
 
     func delete(_ id: UUID, _ vault: URL) { items.removeAll { $0.id == id }; save(vault) }
@@ -158,7 +171,13 @@ struct SafeScreen: View {
     }
 
     @ViewBuilder private func items(_ safe: SafeModel, _ vault: URL) -> some View {
-        Button("добавить") { safe.add(vault) }.buttonStyle(WhitePillStyle()).padding(.bottom, 12)
+        HStack(spacing: 8) {
+            Button("добавить") { safe.add(vault) }.buttonStyle(WhitePillStyle())
+            Button("из «Паролей» (csv)") { safe.importCSV(vault) }.buttonStyle(WhitePillStyle())
+                .help(String(localized: "Пароли → Файл → Экспортировать все пароли"))
+        }
+        .padding(.bottom, 12)
+        if let note = safe.error { Text(note).font(Martian.body.font(12)).foregroundStyle(Theme.coral).padding(.bottom, 8) }
         ForEach(safe.items.filter { $0.kind == safe.kind }) { item in
             SafeRow(item: item, expanded: safe.open == item.id,
                     toggle: { withAnimation(.smooth) { safe.open = safe.open == item.id ? nil : item.id } },
