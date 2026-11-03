@@ -59,6 +59,29 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     await pause(400);
     await check("graph board with card", !!ui.app.querySelector(".board-card .version-file"));
     if (await invoke<string | null>("selftest_env", { name: "NOTES_SELFTEST_HOLD" })) await pause(4000);
+    // Сейф: свой мастер-пароль, запись, код 2FA по RFC 6238, файлы в .safe/ шифром, закрытие.
+    ui.app.querySelector<HTMLElement>('[data-section="safe"]')?.click();
+    await pause(700);
+    await invoke("safe_create", { password: "Тест-пароль-2026" });
+    await invoke("safe_put", { item: { id: "", kind: "login", title: "почта", username: "makar@example.com", secret: "тайна-1", url: "", note: "", modified: 0 } });
+    await invoke("safe_put", { item: { id: "", kind: "totp", title: "github", username: "makark", secret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", url: "", note: "", modified: 0 } });
+    ui.app.querySelector<HTMLElement>('[data-section="notes"]')?.click();
+    await pause(300);
+    ui.app.querySelector<HTMLElement>('[data-section="safe"]')?.click();
+    await pause(900);
+    const [codes] = await invoke<[Record<string, string>, number]>("safe_codes");
+    await check("safe: items, 2fa code, encrypted files", !!ui.app.querySelector(".safe-row") && Object.values(codes).some((c) => /^\d{6}$/.test(c))
+      && !(await backend.tree()).notes.some((n) => n.path.startsWith(".safe")));
+    ui.app.querySelector<HTMLElement>('[data-kind="totp"]')?.click();
+    await pause(300);
+    if (await invoke<string | null>("selftest_env", { name: "NOTES_SELFTEST_HOLD" })) await pause(4000);
+    ui.app.querySelector<HTMLElement>('[data-side="lock"]')?.click();
+    await pause(500);
+    await invoke("safe_unlock", { text: "не тот" }).catch(() => {});
+    const locked = !(await invoke<{ unlocked: boolean }>("safe_state")).unlocked;
+    await invoke("safe_unlock", { text: "Тест-пароль-2026" });
+    await check("safe: lock, wrong key refused, reopen", locked && (await invoke<unknown[]>("safe_items")).length === 2);
+    await invoke("safe_lock");
     // MCP: раздел, «только чтение» пишется в настройки — его прочтёт `--mcp`.
     ui.app.querySelector<HTMLElement>('[data-section="mcp"]')?.click();
     await pause(700);

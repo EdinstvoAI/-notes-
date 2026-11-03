@@ -16,10 +16,11 @@ import { mountSettings } from "./settings";
 import { addFiles, mountVideo, selectVideo } from "./video";
 import { mountSync } from "./sync";
 import { mountMcp } from "./mcp";
+import { mountSafe } from "./safe";
 import { languageFor, setLanguage } from "./i18n";
 import type { Prefs } from "./api";
 
-type Section = "notes" | "tasks" | "calendar" | "video" | "sync" | "mcp" | "settings";
+type Section = "notes" | "tasks" | "calendar" | "video" | "safe" | "sync" | "mcp" | "settings";
 type Selection = { kind: "folder"; path: string } | { kind: "note"; path: string } | { kind: "file"; path: string };
 
 const SECTIONS: { id: Section; title: string; glyph: Glyph }[] = [
@@ -27,6 +28,7 @@ const SECTIONS: { id: Section; title: string; glyph: Glyph }[] = [
   { id: "tasks", title: "задачи", glyph: "taskDone" },
   { id: "calendar", title: "календарь", glyph: "calendar" },
   { id: "video", title: "видео", glyph: "video" },
+  { id: "safe", title: "пароли", glyph: "key" },
   // Синхронизация — своим разделом, статус в шапке не кликается (мак, 03.11.2026).
   { id: "sync", title: "синхронизация", glyph: "git" },
   { id: "mcp", title: "mcp", glyph: "spark" },
@@ -260,6 +262,7 @@ function contentHTML(): string {
     case "tasks": return `<div class="tasks-root"></div>`;
     case "calendar": return `<div class="cal-root"></div>`;
     case "video": return `<div class="video-root"></div>`;
+    case "safe": return `<div class="safe-root"></div>`;
     case "sync": return `<div class="sync-root"></div>`;
     case "mcp": return `<div class="mcp-root"></div>`;
     case "settings": return `<div class="settings-root"></div>`;
@@ -308,6 +311,9 @@ function mountSection() {
     hasRemote: async () => (await backend.githubStatus()).remote !== null,
     lastPush: () => prefs.lastSync ?? null,
     reload: async () => { await reload(); if (state.selection.kind === "note") state.text = await backend.read(state.selection.path).catch(() => ""); } });
+  const safeRoot = page.querySelector<HTMLElement>(".safe-root");
+  if (safeRoot) void mountSafe(safeRoot, sidebar, { inTauri: backend.inTauri, prefs: () => prefs,
+    setPrefs: async (p) => { applyPrefs(p); await backend.setPrefs(p); } });
   const mcp = page.querySelector<HTMLElement>(".mcp-root");
   if (mcp) void mountMcp(mcp, sidebar, { inTauri: backend.inTauri, prefs: () => prefs,
     setPrefs: async (p) => { applyPrefs(p); await backend.setPrefs(p); }, folders: () => (state.tree?.folders ?? []).map((f) => f.name) });

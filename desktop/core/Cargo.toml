@@ -13,6 +13,8 @@ pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
 sha2 = "0.10"
 getrandom = "0.2"
 serde_json = "1"
+# AES-GCM, PBKDF2 и HMAC-SHA1 сейфа. Уже в сборке через ureq → rustls; отдельной загрузки нет.
+ring = "0.17"
 
 [dev-dependencies]
 tempfile = "3"

@@ -38,3 +38,20 @@ pub fn forget_pin() {
         let _ = e.delete_credential();
     }
 }
+
+const REFRESH: &str = "github-refresh";
+
+/// Ключ продления токена GitHub и срок: «секунды ключ».
+pub fn save_refresh(value: &str) -> Result<(), String> {
+    keyring::Entry::new(SERVICE, REFRESH).and_then(|e| e.set_password(value)).map_err(|e| e.to_string())
+}
+
+pub fn refresh() -> Option<String> {
+    keyring::Entry::new(SERVICE, REFRESH).ok()?.get_password().ok()
+}
+
+pub fn forget_refresh() {
+    if let Ok(e) = keyring::Entry::new(SERVICE, REFRESH) {
+        let _ = e.delete_credential();
+    }
+}

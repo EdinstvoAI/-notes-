@@ -42,6 +42,8 @@ export interface Prefs {
   /** MCP: нейронки только читают; папки верхнего уровня, закрытые для них (раздел mcp). */
   mcpReadOnly?: boolean;
   mcpHiddenFolders?: string[];
+  /** Сейф закрывается сам без дела через столько секунд; 0 — никогда (по умолчанию 300). */
+  safeLockSeconds?: number;
 }
 
 export interface GithubStatus { signed_in: boolean; remote: string | null; unpushed: boolean }

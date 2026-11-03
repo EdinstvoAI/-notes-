@@ -8,6 +8,9 @@ edition = "2021"
 license = "MIT"
 
 # Пинкод — 200 000 раундов PBKDF2: в отладочной сборке без оптимизации это секунды на проверку.
+# Сейф: PBKDF2 600 000 раундов без оптимизации — секунды на открытие.
+[profile.dev.package.ring]
+opt-level = 3
 [profile.dev.package.sha2]
 opt-level = 3
 [profile.dev.package.pbkdf2]

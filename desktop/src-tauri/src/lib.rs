@@ -2,6 +2,7 @@
 //! она в ядре, — и нет кода под ОС: он в `platform`.
 
 pub mod mcp;
+mod safe;
 mod dictation;
 mod github;
 mod platform;
@@ -372,8 +373,9 @@ async fn github_finish(code: github::Code, app: tauri::AppHandle) -> Result<Stri
     let root = state.vault.lock().map_err(|e| e.to_string())?.as_ref().ok_or("no vault open")?.root().to_path_buf();
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let token = github::wait_for_token(&code, || handle.state::<AppState>().login_cancelled.load(Ordering::SeqCst))?;
-        platform::secrets::save_token(&token)?;
+        let grant = github::wait_for_token(&code, || handle.state::<AppState>().login_cancelled.load(Ordering::SeqCst))?;
+        github::save_grant(&grant)?;
+        let token = grant.token;
         let repo = github::ensure_notes(&token)?;
         let (history, _) = notes_core::git::History::prepare(&root).map_err(|e| e.to_string())?;
         history.set_remote(&repo.clone_url).map_err(|e| e.to_string())?;
@@ -398,6 +400,7 @@ fn github_cancel(state: State<AppState>) {
 #[tauri::command]
 fn github_sign_out() {
     platform::secrets::forget_token();
+    platform::secrets::forget_refresh();
 }
 
 /// Забрать правки с другого компьютера и отправить свои. Возвращает итог слияния.
@@ -405,7 +408,7 @@ fn github_sign_out() {
 async fn github_sync(date: String, app: tauri::AppHandle) -> Result<notes_core::git::Pull, String> {
     let root = app.state::<AppState>().vault.lock().map_err(|e| e.to_string())?.as_ref().ok_or("no vault open")?.root().to_path_buf();
     tauri::async_runtime::spawn_blocking(move || {
-        let token = platform::secrets::token().ok_or("не вошли в github")?;
+        let token = github::session_token().ok_or("не вошли в github")?;
         let history = notes_core::git::History::open(&root).map_err(|e| e.to_string())?;
         let pulled = history.pull(Some(&token), &date).map_err(|e| e.to_string())?;
         history.push(Some(&token)).map_err(|e| e.to_string())?;
@@ -807,7 +810,7 @@ pub fn run() {
             open_vault, create_vault, create_vault_at, set_app_icon, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
             create_folder, duplicate, move_into, copy_in, trash, untrash, reveal, open_default, absolute, pins, set_pins,
             templates, create_from_template, daily,
-            set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, mcp::mcp_info, mcp::mcp_clear_log, mcp::mcp_skills, mcp::mcp_install_skill, git_history, git_revert, git_restore, git_file_at, git_restore_file, selftest, selftest_slow, selftest_log, selftest_env,
+            set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, safe::safe_state, safe::safe_create, safe::safe_unlock, safe::safe_unlock_hello, safe::safe_lock, safe::safe_items, safe::safe_put, safe::safe_delete, safe::safe_import, safe::safe_codes, safe::safe_totp, safe::safe_generate, safe::safe_weak, safe::safe_copy, safe::screen_locked, mcp::mcp_info, mcp::mcp_clear_log, mcp::mcp_skills, mcp::mcp_install_skill, git_history, git_revert, git_restore, git_file_at, git_restore_file, selftest, selftest_slow, selftest_log, selftest_env,
             github_status, github_code, github_finish, github_cancel, github_sign_out, github_sync, open_github,
             lock_state, lock_seen, lock_needed_on_return, pin_set, pin_clear, pin_check, hello_verify,
             dictation_toggle, models, model_download, model_remove, dictation_test,

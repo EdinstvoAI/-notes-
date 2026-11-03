@@ -23,6 +23,9 @@ pub struct Code {
 #[derive(Deserialize)]
 struct TokenReply {
     access_token: Option<String>,
+    /// Если в приложении GitHub включено истечение токенов: ключ продления и срок жизни токена.
+    refresh_token: Option<String>,
+    expires_in: Option<u64>,
     error: Option<String>,
     interval: Option<u64>,
 }
@@ -49,7 +52,7 @@ pub fn request_code() -> Result<Code, String> {
 }
 
 /// Ждёт подтверждения и возвращает токен. `cancelled` — ушли с экрана: опрос прекращается.
-pub fn wait_for_token(code: &Code, cancelled: impl Fn() -> bool) -> Result<String, String> {
+pub fn wait_for_token(code: &Code, cancelled: impl Fn() -> bool) -> Result<Grant, String> {
     let mut interval = code.interval.max(1);
     loop {
         std::thread::sleep(Duration::from_secs(interval));
@@ -67,8 +70,8 @@ pub fn wait_for_token(code: &Code, cancelled: impl Fn() -> bool) -> Result<Strin
             .map_err(|e| e.to_string())?
             .into_json()
             .map_err(|e| e.to_string())?;
-        if let Some(token) = reply.access_token {
-            return Ok(token);
+        if let Some(grant) = reply.grant() {
+            return Ok(grant);
         }
         match reply.error.as_deref() {
             Some("authorization_pending") => continue,
@@ -122,10 +125,72 @@ mod tests {
     use super::*;
 
     #[test]
+    fn grant_with_refresh() {
+        let reply: TokenReply = serde_json::from_str(r#"{"access_token":"ghu_1","refresh_token":"ghr_1","expires_in":28800}"#).unwrap();
+        let g = reply.grant().unwrap();
+        assert_eq!((g.token.as_str(), g.refresh.as_deref()), ("ghu_1", Some("ghr_1")));
+        assert!(g.expires.unwrap() > unix() + 28000);
+        let old: TokenReply = serde_json::from_str(r#"{"access_token":"gho_1"}"#).unwrap();
+        assert!(old.grant().unwrap().expires.is_none(), "без ключа продления токен вечный");
+    }
+
+    #[test]
     fn parses_device_code() {
         let code: Code = serde_json::from_str(r#"{"device_code":"d","user_code":"ABCD-1234","verification_uri":"https://github.com/login/device","expires_in":899,"interval":5}"#).unwrap();
         assert_eq!(code.user_code, "ABCD-1234");
         let reply: TokenReply = serde_json::from_str(r#"{"error":"slow_down","interval":10}"#).unwrap();
         assert_eq!((reply.error.as_deref(), reply.interval, reply.access_token), (Some("slow_down"), Some(10), None));
+    }
+}
+
+/// Токен и, если GitHub его продлевает, ключ продления со сроком (порт `GitHubSession`, мак 03.11.2026:
+/// без продления GitHub выкидывал раз в сутки).
+pub struct Grant {
+    pub token: String,
+    pub refresh: Option<String>,
+    /// Секунды с 1970, когда токен истечёт.
+    pub expires: Option<u64>,
+}
+
+fn unix() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+impl TokenReply {
+    fn grant(&self) -> Option<Grant> {
+        Some(Grant { token: self.access_token.clone()?, refresh: self.refresh_token.clone(), expires: self.expires_in.map(|s| unix() + s) })
+    }
+}
+
+/// Токен — в Диспетчере учётных данных; ключ продления и срок — там же, отдельной записью.
+pub fn save_grant(grant: &Grant) -> Result<(), String> {
+    crate::platform::secrets::save_token(&grant.token)?;
+    match (&grant.refresh, grant.expires) {
+        (Some(r), Some(e)) => crate::platform::secrets::save_refresh(&format!("{e} {r}")),
+        _ => { crate::platform::secrets::forget_refresh(); Ok(()) }
+    }
+}
+
+/// Токен для работы: истекает через 5 минут или раньше — продлеваем заранее. Без ключа продления токен вечный.
+pub fn session_token() -> Option<String> {
+    let token = crate::platform::secrets::token()?;
+    let Some((expires, refresh)) = crate::platform::secrets::refresh().and_then(|s| s.split_once(' ').map(|(e, r)| (e.parse::<u64>().ok(), r.to_string()))) else {
+        return Some(token);
+    };
+    if expires.is_some_and(|e| e > unix() + 300) {
+        return Some(token);
+    }
+    let reply: Option<TokenReply> = agent()
+        .post("https://github.com/login/oauth/access_token")
+        .set("Accept", "application/json")
+        .send_form(&[("client_id", CLIENT_ID), ("grant_type", "refresh_token"), ("refresh_token", &refresh)])
+        .ok()
+        .and_then(|r| r.into_json().ok());
+    match reply.as_ref().and_then(TokenReply::grant) {
+        Some(grant) => {
+            let _ = save_grant(&grant);
+            Some(grant.token)
+        }
+        None => Some(token),
     }
 }

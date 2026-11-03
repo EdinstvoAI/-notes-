@@ -3117,6 +3117,7 @@ dependencies = [
  "getrandom 0.2.17",
  "git2",
  "pbkdf2 0.12.2",
+ "ring",
  "serde",
  "serde_json",
  "sha2 0.10.9",

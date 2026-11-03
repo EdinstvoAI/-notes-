@@ -9,6 +9,7 @@ pub mod ics;
 pub mod lock;
 pub mod mcp;
 pub mod names;
+pub mod safe;
 pub mod search;
 pub mod tasks;
 pub mod templates;
