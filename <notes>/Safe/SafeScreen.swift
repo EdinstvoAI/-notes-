@@ -56,13 +56,13 @@ final class SafeModel {
     @discardableResult
     private func openFiles(_ vault: URL, _ keys: SafeKeys) -> Bool {
         do {
-            let main = try PasswordSafe.load(vault: vault, password: keys.safe) ?? []
-            let codes = try PasswordSafe.load(vault: vault, password: keys.codes, file: PasswordSafe.codesFile) ?? []
+            let main = try PasswordSafe.load(vault: SafeKeys.home(vault), password: keys.safe) ?? []
+            let codes = try PasswordSafe.load(vault: SafeKeys.home(vault), password: keys.codes, file: PasswordSafe.codesFile) ?? []
             items = main + codes
             self.keys = keys
             error = nil
             touch()
-            if !PasswordSafe.exists(vault: vault) || !PasswordSafe.exists(vault: vault, file: PasswordSafe.codesFile)
+            if !PasswordSafe.exists(vault: SafeKeys.home(vault)) || !PasswordSafe.exists(vault: SafeKeys.home(vault), file: PasswordSafe.codesFile)
                 || main.contains(where: { $0.kind == .totp }) { save(vault) }
             return true
         } catch {
@@ -90,7 +90,7 @@ final class SafeModel {
     private func legacy(_ vault: URL) -> TokenStore { TokenStore(service: "notes.safe", account: vault.path) }
 
     func canUseTouchID(_ vault: URL) -> Bool {
-        PasswordSafe.exists(vault: vault) && (SafeKeys.stored(vault) || legacy(vault).exists)
+        PasswordSafe.exists(vault: SafeKeys.home(vault)) && (SafeKeys.stored(vault) || legacy(vault).exists)
     }
 
     func unlockWithTouchID(_ vault: URL) {
@@ -140,8 +140,8 @@ final class SafeModel {
         guard let keys else { return }
         touch()
         do {
-            try PasswordSafe.save(items.filter { $0.kind != .totp }, vault: vault, password: keys.safe)
-            try PasswordSafe.save(items.filter { $0.kind == .totp }, vault: vault, password: keys.codes, file: PasswordSafe.codesFile)
+            try PasswordSafe.save(items.filter { $0.kind != .totp }, vault: SafeKeys.home(vault), password: keys.safe)
+            try PasswordSafe.save(items.filter { $0.kind == .totp }, vault: SafeKeys.home(vault), password: keys.codes, file: PasswordSafe.codesFile)
         } catch { self.error = error.localizedDescription }
     }
 
@@ -220,9 +220,8 @@ struct SafeSidebar: View {
                                count: safe.items.filter { $0.kind == kind }.count,
                                selected: safe.kind == kind) { safe.kind = kind; safe.open = nil }
                 }
-                SidebarRow(glyph: .key, title: "ключ для другого mac", selected: false) { safe.copyKey() }
-                    .padding(.top, 12)
                 SidebarRow(glyph: .settings, title: "закрыть сейф", selected: false) { safe.lock() }
+                    .padding(.top, 12)
             }
         }
     }
@@ -244,10 +243,10 @@ struct SafeScreen: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(LocalizedStringKey(safe.unlocked ? safe.kind.title : "пароли"))
                     .font(Martian.heading.font(26)).kerning(Theme.tracking(-7, size: 26)).foregroundStyle(Theme.ink)
-                Text(safe.unlocked ? "зашифровано на этом mac — на github уходит только шифр"
+                Text(safe.unlocked ? "лежит только на этом mac — в git и на github не попадает"
                                    : safe.canUseTouchID(vault) ? "открой touch id или паролем mac"
-                                   : PasswordSafe.exists(vault: vault) ? "сейф создан на другом mac — вставь его ключ, дальше хватит touch id"
-                                   : "пароли, коды 2fa и секреты под touch id. шифруются на этом mac")
+                                   : PasswordSafe.exists(vault: SafeKeys.home(vault)) ? "введи мастер-пароль сейфа — дальше хватит touch id"
+                                   : "пароли, коды 2fa и секреты — только на этом mac, под touch id")
                     .font(Martian.body.font(13)).kerning(Theme.tracking(-7, size: 13)).foregroundStyle(NotesLayout.gray)
                     .padding(.top, 1).padding(.bottom, 40)
                 Group {
@@ -270,6 +269,7 @@ struct SafeScreen: View {
                     var code = SafeItem(kind: .totp, title: "github", secret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ")
                     code.username = "makark"
                     safe.kind = .totp; safe.add(vault); code.id = safe.items[0].id; safe.update(code, vault); safe.kind = .login
+                    safe.open = nil
                 }
                 if UserDefaults.standard.bool(forKey: "safeAdd") { adding = true }
                 if UserDefaults.standard.bool(forKey: "safeImport") { importing = true }
@@ -280,7 +280,7 @@ struct SafeScreen: View {
     }
 
     @ViewBuilder private func lockScreen(_ safe: SafeModel, _ vault: URL) -> some View {
-        let creating = !PasswordSafe.exists(vault: vault)
+        let creating = !PasswordSafe.exists(vault: SafeKeys.home(vault))
         if safe.canUseTouchID(vault) {
             Button("открыть по touch id") { safe.unlockWithTouchID(vault) }
                 .buttonStyle(CoralCapsuleStyle())
@@ -305,7 +305,7 @@ struct SafeScreen: View {
     }
 
     @ViewBuilder private func passwordFields(_ safe: SafeModel, _ vault: URL, _ creating: Bool) -> some View {
-        SecureField(creating ? "придумай мастер-пароль" : "ключ сейфа или мастер-пароль", text: $entry)
+        SecureField(creating ? "придумай мастер-пароль" : "мастер-пароль", text: $entry)
             .textFieldStyle(.plain).font(Martian.body.font(15))
             .padding(14).frame(width: 360)
             .background(RoundedRectangle(cornerRadius: 14).fill(Theme.fg.opacity(0.04)))
@@ -352,7 +352,22 @@ struct SafeScreen: View {
         if !adding, !safe.items.isEmpty, !safe.items.contains(where: { $0.kind == safe.kind }) {
             Text("здесь пока пусто — нажми «добавить»").font(Martian.body.font(12)).foregroundStyle(NotesLayout.gray)
         }
-        ForEach(safe.items.filter { $0.kind == safe.kind }) { item in
+        if safe.kind == .totp {
+            if let id = safe.open, let item = safe.items.first(where: { $0.id == id && $0.kind == .totp }) {
+                SafeRow(item: item, expanded: true, toggle: { withAnimation(.smooth) { safe.open = nil } },
+                        change: { safe.update($0, vault) }, delete: { withAnimation(.smooth) { safe.delete(item.id, vault); safe.open = nil } })
+                    .id(item.id)
+                    .transition(.opacity)
+            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
+                ForEach(safe.items.filter { $0.kind == .totp }) { item in
+                    CodeCard(item: item) { withAnimation(.smooth) { safe.open = item.id } }
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                }
+            }
+            .frame(width: min(640, pageWidth))
+        }
+        ForEach(safe.items.filter { $0.kind == safe.kind && $0.kind != .totp }) { item in
             SafeRow(item: item, expanded: safe.open == item.id,
                     toggle: { withAnimation(.smooth) { safe.open = safe.open == item.id ? nil : item.id } },
                     change: { safe.update($0, vault) }, delete: { withAnimation(.smooth) { safe.delete(item.id, vault) } })
@@ -505,6 +520,8 @@ struct OutlinePillStyle: ButtonStyle {
     }
 }
 
+// Запись: свёрнутая — значок с буквой, название, логин и «скопировать»; клик раскрывает редактор.
+// Черновик — обычное состояние, не Optional: Binding($draft) падал, когда редактор закрывался (03.11.2026).
 private struct SafeRow: View {
     @Environment(\.pageWidth) private var pageWidth
     let item: SafeItem
@@ -512,66 +529,138 @@ private struct SafeRow: View {
     let toggle: () -> Void
     let change: (SafeItem) -> Void
     let delete: () -> Void
-    @State private var draft: SafeItem?
+    @State private var draft: SafeItem
     @State private var shown = false
+    @State private var copied = false
+
+    init(item: SafeItem, expanded: Bool, toggle: @escaping () -> Void, change: @escaping (SafeItem) -> Void, delete: @escaping () -> Void) {
+        self.item = item; self.expanded = expanded; self.toggle = toggle; self.change = change; self.delete = delete
+        _draft = State(initialValue: item)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(item.title).font(Martian.body.font(13)).foregroundStyle(Theme.ink)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Monogram(text: item.title)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title).font(Martian.body.font(13)).foregroundStyle(Theme.ink).lineLimit(1)
                     Text(item.username.isEmpty ? item.url : item.username)
-                        .font(Martian.body.font(11)).foregroundStyle(NotesLayout.gray)
+                        .font(Martian.body.font(11)).foregroundStyle(NotesLayout.gray).lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                if item.kind == .totp {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        HStack(spacing: 8) {
-                            Text(TOTP.code(secret: item.secret, date: context.date) ?? "—")
-                                .font(Martian.heading.font(17)).monospacedDigit().foregroundStyle(Theme.ink)
-                            Text("\(TOTP.remaining(date: context.date))").font(Martian.body.font(11)).foregroundStyle(NotesLayout.gray)
-                        }
-                    }
-                }
-                Button("скопировать") {
+                Button(copied ? "скопировано" : "скопировать") {
                     SafeModel.copy(item.kind == .totp ? TOTP.code(secret: item.secret) ?? "" : item.secret)
+                    withAnimation(.smooth) { copied = true }
+                    Task { try? await Task.sleep(for: .seconds(1.5)); withAnimation(.smooth) { copied = false } }
                 }
                 .buttonStyle(WhitePillStyle())
             }
             .contentShape(Rectangle())
             .onTapGesture(perform: toggle)
-            if expanded, let binding = Binding($draft) {
-                field("название", binding.title)
-                if item.kind != .secret { field(item.kind == .totp ? "аккаунт" : "логин", binding.username) }
-                HStack {
-                    if shown { field(label, binding.secret) } else {
-                        SecureField(label, text: binding.secret).textFieldStyle(.plain).font(Martian.body.font(13))
-                            .padding(10).background(RoundedRectangle(cornerRadius: 10).fill(Theme.fg.opacity(0.05)))
+            if expanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    field("название", $draft.title)
+                    if item.kind != .secret { field(item.kind == .totp ? "аккаунт" : "логин", $draft.username) }
+                    HStack(spacing: 8) {
+                        if shown { field(label, $draft.secret) } else {
+                            SecureField(label, text: $draft.secret).textFieldStyle(.plain).font(Martian.body.font(13))
+                                .padding(10).background(RoundedRectangle(cornerRadius: 10).fill(Theme.fg.opacity(0.05)))
+                        }
+                        Button(shown ? "скрыть" : "показать") { shown.toggle() }.buttonStyle(QuietLinkStyle(size: 12, opacity: 0.6))
+                        if item.kind == .login {
+                            Button("новый") { draft.secret = PasswordSafe.generate() }.buttonStyle(QuietLinkStyle(size: 12, opacity: 0.6))
+                        }
                     }
-                    Button(shown ? "скрыть" : "показать") { shown.toggle() }.buttonStyle(QuietLinkStyle(size: 12, opacity: 0.6))
-                    if item.kind == .login {
-                        Button("новый") { draft?.secret = PasswordSafe.generate() }.buttonStyle(QuietLinkStyle(size: 12, opacity: 0.6))
+                    if item.kind == .login { field("сайт", $draft.url) }
+                    field("заметка", $draft.note)
+                    HStack(spacing: 8) {
+                        Button("сохранить") { change(draft); toggle() }.buttonStyle(CoralCapsuleStyle())
+                        Button("отмена") { draft = item; toggle() }.buttonStyle(QuietLinkStyle(size: 12, opacity: 0.6))
+                        Spacer()
+                        Button("удалить") { delete() }.buttonStyle(QuietLinkStyle(size: 12, opacity: 0.6))
                     }
+                    .padding(.top, 4)
                 }
-                if item.kind == .login { field("сайт", binding.url) }
-                field("заметка", binding.note)
-                HStack(spacing: 8) {
-                    Button("сохранить") { if let draft { change(draft) }; toggle() }.buttonStyle(CoralCapsuleStyle())
-                    Button("удалить") { delete() }.buttonStyle(QuietLinkStyle(size: 12, opacity: 0.6))
-                }
-                .padding(.top, 4)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(14)
         .frame(width: min(640, pageWidth), alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.fg.opacity(0.04)))
-        .onChange(of: expanded, initial: true) { draft = expanded ? item : nil; shown = false }
+        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.fg.opacity(expanded ? 0.06 : 0.04)))
+        .onChange(of: expanded) { draft = item; shown = false }
     }
 
-    private var label: String { item.kind == .totp ? String(localized: "секрет или otpauth://") : String(localized: "пароль") }
+    private var label: String { item.kind == .totp ? String(localized: "секретный ключ") : String(localized: "пароль") }
 
     private func field(_ title: String, _ text: Binding<String>) -> some View {
         TextField(LocalizedStringKey(title), text: text).textFieldStyle(.plain).font(Martian.body.font(13))
             .padding(10).background(RoundedRectangle(cornerRadius: 10).fill(Theme.fg.opacity(0.05)))
+    }
+}
+
+// Буква сервиса в кружке — чтобы записи различались с первого взгляда.
+private struct Monogram: View {
+    let text: String
+    var body: some View {
+        Text(String(text.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased())
+            .font(Martian.heading.font(14)).foregroundStyle(Theme.ink)
+            .frame(width: 34, height: 34)
+            .background(Circle().fill(Theme.coral.opacity(0.18)))
+    }
+}
+
+// Код 2FA карточкой, как в приложениях-аутентификаторах (03.11.2026, «дизайн кодов не нравится»):
+// крупный код по три цифры, кольцо — сколько секунд осталось; клик по карточке копирует код.
+private struct CodeCard: View {
+    let item: SafeItem
+    let edit: () -> Void
+    @State private var copied = false
+    @State private var hovered = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let code = TOTP.code(secret: item.secret, date: context.date) ?? "——————"
+            let left = TOTP.remaining(date: context.date)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Monogram(text: item.title)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(item.title).font(Martian.body.font(13)).foregroundStyle(Theme.ink).lineLimit(1)
+                        Text(item.username).font(Martian.body.font(11)).foregroundStyle(NotesLayout.gray).lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    ZStack {
+                        Circle().stroke(Theme.fg.opacity(0.1), lineWidth: 3)
+                        Circle().trim(from: 0, to: CGFloat(left) / 30)
+                            .stroke(left <= 5 ? Theme.coral : Theme.ink, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                            .animation(.linear(duration: 1), value: left)
+                        Text("\(left)").font(Martian.body.font(10)).foregroundStyle(NotesLayout.gray)
+                    }
+                    .frame(width: 26, height: 26)
+                }
+                Text(copied ? String(localized: "скопировано") : code.prefix(3) + " " + code.dropFirst(3))
+                    .font(Martian.heading.font(26)).monospacedDigit().foregroundStyle(left <= 5 ? Theme.coral : Theme.ink)
+                    .contentTransition(.numericText())
+                    .animation(.smooth, value: code)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.fg.opacity(hovered ? 0.07 : 0.04)))
+            .overlay(alignment: .topTrailing) {
+                if hovered {
+                    Button("изменить", action: edit).buttonStyle(QuietLinkStyle(size: 11, opacity: 0.6))
+                        .padding(.top, 52).padding(.trailing, 16)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 16))
+            .onTapGesture {
+                SafeModel.copy(TOTP.code(secret: item.secret) ?? "")
+                withAnimation(.smooth) { copied = true }
+                Task { try? await Task.sleep(for: .seconds(1.2)); withAnimation(.smooth) { copied = false } }
+            }
+            .onHover { hovered = $0 }
+            .animation(.smooth(duration: 0.2), value: hovered)
+        }
     }
 }

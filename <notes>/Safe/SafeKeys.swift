@@ -28,6 +28,20 @@ nonisolated struct SafeKeys: Codable {
         return AppSupport.folder.appendingPathComponent("safe-\(name).key")
     }
 
+    // Сейф живёт только на этом Mac (03.11.2026, «на GitHub вообще не должны уходить ни коды, ни пароли»):
+    // папка в Application Support, не в хранилище. Сейф прошлой беты переезжает сюда из `.safe` хранилища.
+    static func home(_ vault: URL) -> URL {
+        let name = SHA256.hash(data: Data(vault.path.utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
+        let home = AppSupport.folder.appendingPathComponent("safe-\(name)")
+        let old = vault.appendingPathComponent(".safe"), new = home.appendingPathComponent(".safe")
+        let files = FileManager.default
+        if files.fileExists(atPath: old.path), !files.fileExists(atPath: new.path) {
+            try? files.createDirectory(at: home, withIntermediateDirectories: true)
+            try? files.moveItem(at: old, to: new)
+        }
+        return home
+    }
+
     static func stored(_ vault: URL) -> Bool { FileManager.default.fileExists(atPath: url(vault).path) }
 
     static func forget(_ vault: URL) { try? FileManager.default.removeItem(at: url(vault)) }
