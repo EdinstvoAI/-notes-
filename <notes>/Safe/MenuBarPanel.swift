@@ -2,6 +2,37 @@ import AppKit
 import NotesCore
 import SwiftUI
 
+// Свой значок вместо MenuBarExtra: тот встаёт левее всех и на забитой строке уходит под вырез с камерой
+// («не скрой динамик айленд», 03.11.2026). Место — у часов: macOS берёт его из «NSStatusItem Preferred Position».
+@MainActor final class MenuBarItem: NSObject {
+    static let shared = MenuBarItem()
+    private var item: NSStatusItem?
+    private let popover = NSPopover()
+
+    func start() {
+        guard item == nil else { return }
+        let name = "notes"
+        let key = "NSStatusItem Preferred Position \(name)"
+        if UserDefaults.standard.object(forKey: key) == nil { UserDefaults.standard.set(260, forKey: key) }
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.autosaveName = name
+        item.button?.image = MenuBarPanel.icon
+        item.button?.target = self
+        item.button?.action = #selector(toggle)
+        popover.behavior = .transient
+        popover.contentViewController = NSHostingController(rootView: MenuBarPanel(vault: VaultStore.restore()))
+        self.item = item
+    }
+
+    @objc private func toggle() {
+        guard let button = item?.button else { return }
+        if popover.isShown { popover.performClose(nil) } else {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
+        }
+    }
+}
+
 // Панель значка в строке меню: сейф паролей под рукой — найти, скопировать пароль или код 2FA,
 // плюс «открыть <notes>» и надиктовку. Сейф тот же, что в окне (SafeModel.shared).
 struct MenuBarPanel: View {

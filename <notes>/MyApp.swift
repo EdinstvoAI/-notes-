@@ -26,7 +26,7 @@ struct MyApp: App {
         AppSupport.migrate()
         FontRegistrar.registerBundledFonts()
         // Смена темы вслед за системой — плавно (ThemeCrossfade).
-        DispatchQueue.main.async { AppSettings.applyTheme(); ThemeCrossfade.shared.start(); DockIcon.shared.start() }
+        DispatchQueue.main.async { MenuBarItem.shared.start(); AppSettings.applyTheme(); ThemeCrossfade.shared.start(); DockIcon.shared.start() }
         #if DEBUG
         // `--args -themeFlipTest YES` — через 3 с приложение само меняет тему: снять кадр посреди наплыва.
         if UserDefaults.standard.bool(forKey: "themeFlipTest") {
@@ -95,13 +95,6 @@ struct MyApp: App {
                     .keyboardShortcut("]")
             }
         }
-        // Значок в строке меню (03.11.2026, «сверху иконка notes… быстро открыть менеджер паролей»).
-        MenuBarExtra {
-            MenuBarPanel(vault: onboarding.vaultURL)
-        } label: {
-            Image(nsImage: MenuBarPanel.icon)
-        }
-        .menuBarExtraStyle(.window)
     }
 }
 
