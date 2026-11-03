@@ -408,6 +408,22 @@
         }
       }
     },
+    "claude, codex и другие ищут и пишут заметки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "claude, codex and others search and write notes"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "claude, codex i drugi traže i pišu beleške"
+          }
+        }
+      }
+    },
     "enter, чтобы добавить": {
       "localizations": {
         "en": {
@@ -3707,6 +3723,22 @@
         }
       }
     },
+    "нейронки (mcp)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ai agents (mcp)"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ai agenti (mcp)"
+          }
+        }
+      }
+    },
     "немецкий": {
       "localizations": {
         "en": {
@@ -5239,6 +5271,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "kopiraj kod"
+          }
+        }
+      }
+    },
+    "скопировать команду": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "copy command"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kopiraj komandu"
           }
         }
       }

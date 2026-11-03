@@ -2,7 +2,20 @@ import NotesCore
 import AppKit
 import SwiftUI
 
-@main struct MyApp: App {
+// `<notes> --mcp` — тот же файл приложения работает MCP-сервером для нейронок (stdio, без окна):
+// хранилище берётся то, что выбрано в приложении, отдельный файл ставить не надо (03.11.2026).
+@main enum Entry {
+    static func main() {
+        guard CommandLine.arguments.contains("--mcp") else { return MyApp.main() }
+        guard let vault = VaultStore.restore() else {
+            FileHandle.standardError.write(Data("<notes>: хранилище не выбрано — открой приложение\n".utf8))
+            exit(1)
+        }
+        MCPServer(library: NoteLibrary(root: vault)).run()
+    }
+}
+
+struct MyApp: App {
     @State private var onboarding = OnboardingModel()
 
     init() {

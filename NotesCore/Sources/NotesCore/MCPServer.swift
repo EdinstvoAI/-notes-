@@ -11,6 +11,15 @@ public struct MCPServer {
 
     static let version = "2025-06-18"
 
+    // Читает запросы со stdin до конца ввода. Нейронка закрыла канал — процесс выходит.
+    public func run() {
+        setvbuf(stdout, nil, _IOLBF, 0)
+        while let line = readLine() {
+            guard !line.trimmingCharacters(in: .whitespaces).isEmpty else { continue }
+            if let reply = handle(line) { print(reply) }
+        }
+    }
+
     // Одна строка запроса → одна строка ответа; nil — уведомление, отвечать не надо.
     public func handle(_ line: String) -> String? {
         guard let data = line.data(using: .utf8),
