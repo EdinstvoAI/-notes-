@@ -155,7 +155,7 @@ private struct TopBar: View {
 
     // Разделы в шапке: все со словами → гибрид (значки, слово только у выбранного) → только значки.
     enum Fit { case full, hybrid, icons }
-    private static let titles = ["заметки", "задачи", "календарь", "видео", "настройки"]
+    private static let titles = ["заметки", "задачи", "календарь", "видео", "синхронизация", "настройки"]
 
     var body: some View {
         GeometryReader { geo in
@@ -215,7 +215,7 @@ private struct TopBar: View {
             let sections: CGFloat = switch fit {
             case .full: fullSections + 22
             case .hybrid: Self.hybridWidth(labels[selectedTitle])
-            case .icons: 4 * 34 + 3 * 6 + 22
+            case .icons: CGFloat(Self.titles.count) * 34 + CGFloat(Self.titles.count - 1) * 6 + 22
             }
             // Капсула по ширине самих кнопок: посчитанная ширина расходилась с ними, и шестерёнка
             // налезала на край (снимок Макара, 03.11.2026). Счёт `sections` — только для выбора вида.
@@ -264,8 +264,6 @@ private struct TopBar: View {
                     .clipped()
                     .animation(.smooth(duration: 0.25), value: fits)
                     .contentShape(Rectangle())
-                    // Клик по синхронизации — раздел с версиями и откатом (03.11.2026).
-                    .onTapGesture { model.flush(); model.section = .sync }
                     .onHover { syncHovered = $0 }
                     .hoverHint(sync.status(now: .now), when: !fits && syncHovered)
                 }
@@ -307,7 +305,7 @@ private struct TopBar: View {
         case .calendar: "календарь"
         case .video: "видео"
         case .settings: "настройки"
-        case .sync: ""
+        case .sync: "синхронизация"
         }
     }
 
@@ -325,6 +323,8 @@ private struct TopBar: View {
             section("задачи", .taskDone, .tasks, fit)
             section("календарь", .calendar, .calendar, fit)
             section("видео", .video, .video, fit)
+            // Синхронизация — своим разделом, а не кликом по статусу (03.11.2026, «статус не кликабельный»).
+            section("синхронизация", .git, .sync, fit)
             section("настройки", .settings, .settings, fit)
         }
     }
