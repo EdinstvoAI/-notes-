@@ -62,7 +62,9 @@ float strip(vec2 p, float k, float level, float i) {
   float ringB = 0.45 + 0.75 * pow(0.5 + 0.5 * sin(ang * 2.0 - dir * t * 2.4 + i), 2.0);
   float d = mix(lineD, ringD, think);
   float w = mix(lineW, 0.026, think);
-  return mix(lineB, ringB, think) * exp(-d * d / (w * w));
+  // Матовое стекло размывает линии: ядро почти гаснет, свет расплывается ореолом, к краю шара сильнее (Orb.metal, 01.11.2026).
+  float W = w * mix(2.0, 3.5, r2);
+  return mix(lineB, ringB, think) * (0.35 * exp(-d * d / (w * w)) + 0.3 * exp(-d * d / (W * W)));
 }
 void main() {
   ${POS}

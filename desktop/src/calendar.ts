@@ -51,25 +51,40 @@ function shift(step: number) {
   view.anchor = a;
 }
 
-/** Пересекающиеся события — рядом дорожками, а не друг на друге. */
-function lanes(list: TaskRow[]): Map<TaskRow, { lane: number; of: number }> {
-  const out = new Map<TaskRow, { lane: number; of: number }>();
-  const sorted = [...list].sort((a, b) => toMin(a.time!) - toMin(b.time!));
-  let group: TaskRow[] = [];
-  let groupEnd = -1;
-  const ends: number[] = [];
-  const flush = () => { group.forEach((t) => (out.get(t)!.of = ends.length)); group = []; ends.length = 0; };
-  for (const t of sorted) {
-    const s = toMin(t.time!), e = s + (t.minutes ?? 60);
-    if (s >= groupEnd) { flush(); groupEnd = -1; }
-    let lane = ends.findIndex((end) => end <= s);
-    if (lane < 0) { lane = ends.length; ends.push(e); } else ends[lane] = e;
-    out.set(t, { lane, of: 0 });
-    group.push(t);
-    groupEnd = Math.max(groupEnd, e);
+/** Место среди пересекающихся, как в Календаре Apple (порт `TasksScreen.lanes`, 01.11.2026): начавшиеся
+ *  почти вместе (до 45 мин) стоят рядом и делят ширину, начавшееся позже ложится слоем со сдвигом вправо
+ *  и не закрывает чужое название. level — глубина слоя, col и count — место в ряду «рядом». */
+export interface Lane { level: number; col: number; count: number }
+export function lanes(list: TaskRow[]): Map<TaskRow, Lane> {
+  const out = new Map<TaskRow, Lane>();
+  const start = (t: TaskRow) => toMin(t.time!), end = (t: TaskRow) => start(t) + (t.minutes ?? 60);
+  const placed: TaskRow[] = [];
+  const rows = new Map<TaskRow, TaskRow[]>();
+  for (const t of [...list].sort((a, b) => start(a) - start(b))) {
+    const active = placed.filter((p) => end(p) > start(t));
+    const near = active.find((p) => start(t) - start(p) < 45);
+    const head = near && [...rows].find(([, r]) => r.includes(near))?.[0];
+    if (near && head) {
+      const row = rows.get(head)!;
+      row.push(t);
+      out.set(t, { level: out.get(near)!.level, col: row.length - 1, count: 1 });
+      for (const r of row) out.get(r)!.count = row.length;
+    } else {
+      out.set(t, { level: Math.max(-1, ...active.map((p) => out.get(p)!.level)) + 1, col: 0, count: 1 });
+      rows.set(t, [t]);
+    }
+    placed.push(t);
   }
-  flush();
   return out;
+}
+
+/** Отступ и ширина в колонке шириной colW: глубже двух слоёв не сдвигаем; узко — следующий на правую половину. */
+export function laneBox(l: Lane, colW: number): { left: number; width: number } {
+  const base = Math.min(l.level, 2) * Math.min(18, (colW - 6) * 0.2);
+  const region = colW - 6 - base;
+  const fits = region / l.count >= 70;
+  const left = base + (fits ? (l.col * region) / l.count : (l.col * region) / 2 / Math.max(1, l.count - 1));
+  return { left: 3 + left, width: fits ? region / l.count : region - (left - base) };
 }
 
 export function mountCalendar(root: HTMLElement, host: CalendarHost) {
@@ -92,15 +107,17 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
       const key = iso(d);
       const timed = tasks.filter((t) => t.date === key && t.time);
       const placed = lanes(timed);
+      const colW = Math.max(60, (root.clientWidth - 24 - 15 - 52) / list.length);
       const events = timed.map((t) => {
-        const { lane, of } = placed.get(t)!;
+        const lane = placed.get(t)!;
+        const box = laneBox(lane, colW);
         const top = (toMin(t.time!) / 60) * HOUR;
         const height = Math.max(HOUR / 4 - 2, ((t.minutes ?? 60) / 60) * HOUR - 2);
         const end = hhmm(Math.min(toMin(t.time!) + (t.minutes ?? 60), 1439));
         const short = height < 36;
         return `<div class="cal-event${t.done ? " done" : ""}${t.urgent ? " urgent" : ""}${short ? " short" : ""}" data-task="${tasks.indexOf(t)}"
-          style="top:${top}px;height:${height}px;left:calc(${(lane / of) * 100}% + 2px);width:calc(${100 / of}% - 4px)"
-          title="${esc(t.title)} · ${t.time}–${end}">
+          style="top:${top}px;height:${height}px;left:${box.left}px;width:${box.width}px;z-index:${1 + toMin(t.time!) + lane.level / 10}${lane.level ? ";box-shadow:inset 3px 0 0 var(--coral),0 1px 3px rgba(0,0,0,.25)" : ""}"
+          title="${esc(t.title)}&#10;${t.time} – ${end}">
           <span>${esc(t.title)}</span><small>${t.time}${short ? "" : "–" + end}</small><i class="cal-resize"></i></div>`;
       }).join("");
       const now = key === today ? `<div class="cal-now" style="top:${((new Date().getHours() * 60 + new Date().getMinutes()) / 60) * HOUR}px"></div>` : "";
