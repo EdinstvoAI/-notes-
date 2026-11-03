@@ -314,6 +314,12 @@ fn selftest_slow() -> bool {
     std::env::var("NOTES_SELFTEST_SLOW").is_ok_and(|v| v == "1")
 }
 
+/// Отладочная сборка: `NOTES_SECTION=tasks` — сразу в раздел, как `-notesSection` у Swift (снимки рядом с эталоном).
+#[tauri::command]
+fn debug_section() -> Option<String> {
+    if cfg!(debug_assertions) { std::env::var("NOTES_SECTION").ok() } else { None }
+}
+
 /// Переменная окружения для самопроверки (путь к архиву модели и т. п.). Только в режиме самопроверки.
 #[tauri::command]
 fn selftest_env(name: String) -> Option<String> {
@@ -856,6 +862,17 @@ pub fn run() {
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 platform::window::apply_glass(&window);
+                // Отладка: `NOTES_SIZE=783x686` — окно ровно как у Swift-эталона, для снимков рядом.
+                #[cfg(debug_assertions)]
+                if let Some((w, h)) = std::env::var("NOTES_SIZE").ok().and_then(|s| { let (w, h) = s.split_once('x')?; Some((w.parse::<f64>().ok()?, h.parse::<f64>().ok()?)) }) {
+                    // Через полсекунды: размер, заданный до показа окна, ломал снимок окна (screencapture -l).
+                    let win = window.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                        let _ = win.set_min_size(None::<tauri::LogicalSize<f64>>);
+                        let _ = win.set_size(tauri::LogicalSize::new(w, h));
+                    });
+                }
             }
             dictation::create_orb(app.handle())?;
             // Без трея (нет области уведомлений) приложение всё равно работает.
@@ -876,7 +893,7 @@ pub fn run() {
             open_vault, create_vault, create_vault_at, set_app_icon, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
             create_folder, duplicate, move_into, copy_in, trash, untrash, reveal, open_default, absolute, pins, set_pins,
             templates, create_from_template, daily,
-            set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, set_tray_icon, show_main, safe::safe_state, safe::safe_create, safe::safe_unlock, safe::safe_unlock_hello, safe::safe_lock, safe::safe_items, safe::safe_put, safe::safe_delete, safe::safe_import, safe::safe_codes, safe::safe_totp, safe::safe_generate, safe::safe_weak, safe::safe_copy, safe::screen_locked, mcp::mcp_info, mcp::mcp_clear_log, mcp::mcp_skills, mcp::mcp_install_skill, git_history, git_revert, git_restore, git_file_at, git_restore_file, selftest, selftest_slow, selftest_log, selftest_env,
+            set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, set_tray_icon, show_main, safe::safe_state, safe::safe_create, safe::safe_unlock, safe::safe_unlock_hello, safe::safe_lock, safe::safe_items, safe::safe_put, safe::safe_delete, safe::safe_import, safe::safe_codes, safe::safe_totp, safe::safe_generate, safe::safe_weak, safe::safe_copy, safe::screen_locked, mcp::mcp_info, mcp::mcp_clear_log, mcp::mcp_skills, mcp::mcp_install_skill, git_history, git_revert, git_restore, git_file_at, git_restore_file, selftest, selftest_slow, selftest_log, selftest_env, debug_section,
             github_status, github_code, github_finish, github_cancel, github_sign_out, github_sync, open_github,
             lock_state, lock_seen, lock_needed_on_return, pin_set, pin_clear, pin_check, hello_verify,
             dictation_toggle, models, model_download, model_remove, dictation_test,

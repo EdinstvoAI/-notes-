@@ -76,6 +76,14 @@ export async function enableFileDrop(host: DragHost) {
   const { getCurrentWebview } = await import("@tauri-apps/api/webview");
   await getCurrentWebview().onDragDropEvent((event) => {
     const p = event.payload;
+    // Зона видео подсвечивается кораллом и зовёт «отпусти» — как targeted у DropZone на маке.
+    const zone = document.querySelector<HTMLElement>(".drop-zone");
+    if (zone) {
+      const on = p.type === "enter" || p.type === "over";
+      zone.classList.toggle("targeted", on);
+      const label = zone.querySelector("b");
+      if (label) label.textContent = on ? "отпусти, чтобы расшифровать" : "перетащи видео или аудио";
+    }
     if (p.type === "leave") { mark(null); return; }
     const ratio = devicePixelRatio || 1;
     const folder = folderAt(p.position.x / ratio, p.position.y / ratio);

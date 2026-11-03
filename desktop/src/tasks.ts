@@ -7,7 +7,7 @@ import { icon, type Glyph } from "./icons";
 
 type Filter = "all" | "today" | "week" | "noDate" | "dated" | "done";
 const FILTERS: [Filter, string, Glyph][] = [
-  ["all", "все задачи", "taskDone"], ["today", "сегодня", "task"], ["week", "на неделе", "calendar"],
+  ["all", "все задачи", "task"], ["today", "сегодня", "task"], ["week", "на неделе", "task"],
   ["noDate", "без даты", "task"], ["dated", "с датой", "calendar"], ["done", "готово", "taskDone"],
 ];
 type Group = "сегодня" | "на неделе" | "позже" | "без даты" | "готово";

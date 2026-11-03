@@ -100,10 +100,18 @@ export async function mountSafe(root: HTMLElement, sidebar: HTMLElement, host: S
       <div class="safe-actions">${coral("save-new", "сохранить", true)}${quiet("cancel", "отмена")}</div></form>`;
   }
 
+  // Буква в коралловом круге 34 — Monogram на маке.
+  const mono = (t: string) => `<span class="safe-mono">${esc(t.trim().slice(0, 1).toUpperCase())}</span>`;
+  // Код 2FA карточкой (CodeCard): буква, сервис и аккаунт, кольцо секунд; крупный код по три цифры; клик — копия.
+  const ring = (left: number) => { const c = 2 * Math.PI * 11.5; return `<svg class="safe-ring${left <= 5 ? " late" : ""}" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5"/><circle class="arc" cx="13" cy="13" r="11.5" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - left / 30)}"/><text x="13" y="16.5">${left}</text></svg>`; };
+  const split = (c: string | undefined) => c ? `${c.slice(0, 3)} ${c.slice(3)}` : "——— ———";
+  const card = (i: Item) => `<div class="code-card${st.left <= 5 ? " late" : ""}" data-code="${i.id}"><div class="code-top">${mono(i.title)}<div><span>${esc(i.title)}</span><small>${esc(i.username)}</small></div>${ring(st.left)}</div>
+    <b class="code-digits">${split(st.codes[i.id])}</b><button class="quiet-link code-edit" data-toggle="${i.id}">изменить</button></div>`;
+
   function row(i: Item): string {
     const open = st.open === i.id;
     const code = i.kind === "totp" ? `<b class="safe-code">${st.codes[i.id] ?? "—"}</b><small class="safe-left">${st.left}</small>` : "";
-    const head = `<div class="safe-head" data-toggle="${i.id}"><div><span>${esc(i.title)}</span><small>${esc(i.username || i.url)}</small></div>
+    const head = `<div class="safe-head" data-toggle="${i.id}">${mono(i.title)}<div><span>${esc(i.title)}</span><small>${esc(i.username || i.url)}</small></div>
       ${code}<button class="pill" data-copy="${i.id}">скопировать</button></div>`;
     if (!open) return `<div class="safe-row">${head}</div>`;
     const label = i.kind === "totp" ? "секрет или otpauth://" : "пароль";
@@ -124,20 +132,20 @@ export async function mountSafe(root: HTMLElement, sidebar: HTMLElement, host: S
          <button class="row" style="padding-left:8px" data-side="lock">${icon("settings")}<span>закрыть сейф</span></button>` : "";
     const title = state.unlocked ? KINDS.find(([k]) => k === st.kind)![1] : "пароли";
     const sub = state.unlocked ? "в зашифрованном файле .safe/safe.enc, на github — только шифром"
-      : state.remembered && state.hello ? os("сейф открывается windows hello: лицо, палец или пин-код windows", "сейф открывается touch id")
-      : state.exists ? `на новом компьютере — ключ сейфа один раз, дальше ${hello}`
+      : state.remembered && state.hello ? os("сейф открывается windows hello: лицо, палец или пин-код windows", "открой touch id или паролем mac")
+      : state.exists ? os("на новом компьютере — ключ сейфа один раз, дальше windows hello", "введи мастер-пароль сейфа — дальше хватит touch id")
       : os("ключ придумает компьютер и спрячет в диспетчер учётных данных — открывать будешь windows hello", "ключ придумает компьютер и спрячет в связку ключей — открывать будешь touch id");
     let body = "";
     if (!state.unlocked) body = lockScreen();
     else {
       const p = host.prefs();
       const list = st.items.filter((i) => i.kind === st.kind);
-      body = `<div class="safe-actions">${coral("add", "добавить")}<button class="outline-pill" data-act="import">${st.importing ? "скрыть перенос" : "перенести из браузера"}</button></div>`
+      body = `<div class="safe-actions">${coral("add", "добавить")}<button class="outline-pill" data-act="import">${st.importing ? "скрыть перенос" : os("перенести из браузера", "перенести из «Паролей»")}</button></div>`
         + (st.adding ? addForm() : "")
         + (st.importing || (!st.items.length && !st.adding) ? `<div class="safe-guide">${STEPS.map((s, i) => `<p><b>${i + 1}</b>${s}</p>`).join("")}
             <div class="safe-actions"><button class="pill" data-act="pick">выбрать файл</button></div></div>` : "")
         + (!st.adding && st.items.length && !list.length ? `<small class="safe-empty">здесь пока пусто — нажми «добавить»</small>` : "")
-        + list.map(row).join("")
+        + (st.kind === "totp" ? (list.some((i) => i.id === st.open) ? row(list.find((i) => i.id === st.open)!) : "") + `<div class="code-cards">${list.map(card).join("")}</div>` : list.map(row).join(""))
         + `<div class="setting"><div><b>закрывать сам</b><small>${(p.safeLockSeconds ?? 300) === 0 ? "никогда — опасно: открытый сейф увидит любой, кто сел за компьютер"
             : `без дела ${lockTitle(p.safeLockSeconds ?? 300)}, а ещё при сне и блокировке экрана`}</small></div>
             <button class="pill" data-act="lock-after">${lockTitle(p.safeLockSeconds ?? 300)}</button></div>`;
@@ -194,6 +202,13 @@ export async function mountSafe(root: HTMLElement, sidebar: HTMLElement, host: S
     const t = e.target as HTMLElement;
     const copy = t.closest<HTMLElement>("[data-copy]");
     if (copy) { touch(); await invoke("safe_copy", { what: "item", id: copy.dataset.copy }); copy.textContent = "скопировано"; return; }
+    const cardEl = t.closest<HTMLElement>("[data-code]");
+    if (cardEl && !t.closest("[data-toggle]")) {
+      touch(); await invoke("safe_copy", { what: "item", id: cardEl.dataset.code });
+      const d = cardEl.querySelector<HTMLElement>(".code-digits")!; d.textContent = "скопировано"; cardEl.dataset.copied = "1";
+      setTimeout(() => { delete cardEl.dataset.copied; d.textContent = split(st.codes[cardEl.dataset.code!]); }, 1200);
+      return;
+    }
     const a = t.closest<HTMLElement>("[data-act]");
     if (a) { e.preventDefault(); return void act(a.dataset.act!, a); }
     const toggle = t.closest<HTMLElement>("[data-toggle]");
@@ -245,6 +260,15 @@ export async function mountSafe(root: HTMLElement, sidebar: HTMLElement, host: S
       const c = r.querySelector(".safe-code"), l = r.querySelector(".safe-left");
       if (id && c) c.textContent = st.codes[id] ?? "—";
       if (l) l.textContent = String(st.left);
+    });
+    root.querySelectorAll<HTMLElement>(".code-card").forEach((c) => {
+      c.classList.toggle("late", st.left <= 5);
+      // Кольцо не пересоздаём — меняем дугу, и она плавно убывает (.linear(duration: 1) на маке).
+      const r = c.querySelector<SVGElement>(".safe-ring")!, len = 2 * Math.PI * 11.5;
+      r.classList.toggle("late", st.left <= 5);
+      r.querySelector(".arc")!.setAttribute("stroke-dashoffset", String(len * (1 - st.left / 30)));
+      r.querySelector("text")!.textContent = String(st.left);
+      if (!c.dataset.copied) c.querySelector(".code-digits")!.textContent = split(st.codes[c.dataset.code!]);
     });
   }, 1000);
   watch(host, () => { if (root.isConnected) void load(); });

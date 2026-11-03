@@ -3,6 +3,7 @@
 
 import { api, type Api, type Folder, type Note } from "./api";
 import { os } from "./platform";
+import { blurIn } from "./motion";
 export type { Note };
 import { icon, type Glyph } from "./icons";
 import { drawSlats } from "./slats";
@@ -69,7 +70,7 @@ app.innerHTML = `
       <button class="search">${icon("search")}<span>поиск</span><kbd class="keycap">${os("Ctrl K", "⌘K")}</kbd></button>
     </div>
     <nav class="group sections"></nav>
-    <div class="group sync" title="история в git">${icon("git")}<span class="sync-text">без git</span></div>
+    <div class="group sync">${icon("git")}<span class="sync-text">без git</span></div>
   </header>
   <div class="sheet arrive" style="transition-delay:.15s"></div>
   <button class="crumb arrive" style="transition-delay:.2s"></button>
@@ -106,7 +107,11 @@ function fitHeader() {
   movePill();
 }
 new ResizeObserver(() => { paintSlats(); fitHeader(); }).observe(app);
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { paintSlats(); applyPrefs(prefs); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  // Системная смена темы — тоже наплывом, как ThemeCrossfade на маке.
+  document.documentElement.classList.add("theming"); setTimeout(() => document.documentElement.classList.remove("theming"), 600);
+  paintSlats(); applyPrefs(prefs);
+});
 
 // ——— шапка ———
 function renderNav() {
@@ -115,14 +120,46 @@ function renderNav() {
   const built = nav.querySelectorAll(".section").length === SECTIONS.length;
   if (!built) {
     const lens = nav.querySelector(".glass-lens");
-    nav.innerHTML = `<span class="nav-pill"></span>` + SECTIONS.map((s) => `
-    <button class="section" data-section="${s.id}" title="${s.title}">
+    nav.innerHTML = `<span class="nav-hover"></span><span class="nav-pill"></span>` + SECTIONS.map((s) => `
+    <button class="section" data-section="${s.id}">
       ${icon(s.glyph)}<span>${s.title}</span>
     </button>`).join("");
     if (lens) nav.prepend(lens);
   }
   nav.querySelectorAll<HTMLElement>(".section").forEach((b) => b.classList.toggle("active", b.dataset.section === state.section));
 }
+
+// Наведение — одна плашка на группу, переезжает между кнопками (matchedGeometryEffect «hover» на маке), а в
+// узкой шапке под значком сразу всплывает название (hoverHint): системная подсказка ждёт секунду.
+const hint = document.createElement("div");
+hint.className = "hover-hint";
+document.body.append(hint);
+function showHint(el: HTMLElement | null, text = "") {
+  hint.classList.toggle("shown", !!el && !!text);
+  if (!el || !text) return;
+  hint.textContent = text;
+  const r = el.getBoundingClientRect();
+  hint.style.left = `${r.left + r.width / 2}px`;
+  hint.style.top = `${r.bottom + 8}px`;
+}
+nav.addEventListener("mouseover", (e) => {
+  const b = (e.target as HTMLElement).closest<HTMLElement>(".section");
+  const hover = nav.querySelector<HTMLElement>(".nav-hover");
+  if (!b || !hover) return;
+  const first = !hover.classList.contains("shown");
+  hover.style.transition = first ? "opacity .25s var(--smooth)" : "";
+  hover.style.transform = `translateX(${b.offsetLeft}px)`;
+  hover.style.width = `${b.offsetWidth}px`;
+  hover.classList.toggle("shown", !b.classList.contains("active"));
+  const compact = getComputedStyle(b.querySelector("span")!).display === "none";
+  showHint(compact ? b : null, b.querySelector("span")!.textContent ?? "");
+});
+const syncBox = app.querySelector<HTMLElement>(".topbar .sync")!;
+// Синхронизация без текста (узкая шапка) — статус подсказкой при наведении, как у мака.
+syncBox.addEventListener("mouseenter", () => { const t = syncBox.querySelector<HTMLElement>(".sync-text")!; if (getComputedStyle(t).display === "none") showHint(syncBox, t.textContent ?? ""); });
+syncBox.addEventListener("mouseleave", () => showHint(null));
+nav.addEventListener("mouseleave", () => { nav.querySelector(".nav-hover")?.classList.remove("shown"); showHint(null); });
+nav.addEventListener("click", () => { nav.querySelector(".nav-hover")?.classList.remove("shown"); showHint(null); });
 
 // Подсветка раздела едет к новому, как withAnimation(.smooth(0.45)) на маке, а не перескакивает.
 let pillAt: string | null = null;
@@ -240,6 +277,7 @@ function overviewHTML(folder: Folder): string {
     <div class="cards">${folder.folders.map((f) => `
       <button class="card" data-folder="${esc(f.path)}">${folderSvg}<b>${esc(f.name)}</b>
         <small>${f.note_count} ${plural(f.note_count, "заметка", "заметки", "заметок")}</small></button>`).join("")}
+      <button class="card new-card" data-new-folder="${esc(folder.path)}">${folderSvg}${icon("plus", 24)}<b>новая папка</b></button>
     </div>
     ${folder.notes.length ? `<div class="list-title">${root ? "без папки" : "заметки"}</div>
       ${folder.notes.map((n: Note) => `<button class="note-row" data-note="${esc(n.path)}">${icon("file")}
@@ -465,14 +503,24 @@ app.addEventListener("click", async (e) => {
   if (el?.dataset.close) { closeTab(el.dataset.close); return; }
   if (tab && !el) { await openNote(tab.dataset.tab!); return; }
   if (!el) return;
+  if (el.dataset.newFolder !== undefined) {
+    // Карточка «новая папка» в обзоре — имя вписывается строкой в панели, как из меню.
+    state.naming = el.dataset.newFolder;
+    if (state.naming) state.expanded.add(state.naming);
+    renderSidebar();
+    return;
+  }
   if (el.classList.contains("search")) { openSearch(); return; }
   if (el.dataset.section) {
+    const changed = state.section !== el.dataset.section;
     state.section = el.dataset.section as Section;
     render();
+    // Панель слева тоже уходит в размытие и проявляется новой, вместе с разделом (SectionSidebar .blurReplace).
+    if (changed) blurIn(sidebar);
   } else if (el.dataset.folder !== undefined) {
     const path = el.dataset.folder;
     // Папка раскрывается и сворачивается плавно, 0,3 с — как .smooth(duration: 0.3) на маке.
-    if (el.classList.contains("row") && state.expanded.has(path) && state.selection.path === path) {
+    if (el.classList.contains("row") && state.expanded.has(path)) {
       const kids = [...sidebar.querySelectorAll<HTMLElement>(".fold")].find((d) => d.dataset.of === path);
       state.expanded.delete(path);
       state.selection = { kind: "folder", path };
@@ -586,7 +634,7 @@ async function refreshSync() {
     if (minutes >= (prefs.commitMinutes ?? 60) && (await backend.gitCommit())) return refreshSync();
     if (gh.signed_in && gh.remote) {
       // С GitHub — как на маке: «синхронизировано N мин назад»; раз в час забираем и отправляем.
-      if (!prefs.lastSync || Date.now() - prefs.lastSync > (prefs.pushMinutes ?? 60) * 60 * 1000) await syncWithGithub();
+      if (!prefs.lastSync || Date.now() - prefs.lastSync > (prefs.pushMinutes ?? 1440) * 60 * 1000) await syncWithGithub();
       text.title = syncError ?? "";
       text.textContent = syncError ? "не отправилось" : prefs.lastSync ? `синхронизировано ${agoText(prefs.lastSync / 1000)}` : "синхронизируем…";
     } else {
@@ -835,6 +883,9 @@ export const shell = { get backend() { return backend; }, get state() { return s
     });
   }
   const demo = new URLSearchParams(location.search).get("open");
+  const start = backend.inTauri ? await (await import("@tauri-apps/api/core")).invoke<string | null>("debug_section").catch(() => null)
+    : new URLSearchParams(location.search).get("section");
+  if (start) state.section = start as Section;
   render();
   paintSlats();
   requestAnimationFrame(() => app.classList.add("arrived"));

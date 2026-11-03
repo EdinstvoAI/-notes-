@@ -7,6 +7,7 @@ import type { Prefs } from "./api";
 import { icon, type Glyph } from "./icons";
 import { showMenu } from "./menu";
 import { blurIn } from "./motion";
+import { os } from "./platform";
 
 type Agent = "claude" | "codex" | "cursor";
 const AGENTS: [Agent, string][] = [["claude", "Claude Code"], ["codex", "Codex"], ["cursor", "Cursor"]];
@@ -74,7 +75,7 @@ export async function mountMcp(root: HTMLElement, sidebar: HTMLElement, host: Mc
     const name = AGENTS.find(([a]) => a === agent)![1];
     const head = skillsPage
       ? `<h1>скиллы</h1><p class="settings-sub">готовые инструкции для нейросети: что делать с заметками</p>`
-      : `<h1>mcp</h1><p class="settings-sub">локальный сервер: claude code, codex и cursor работают с заметками на этом компьютере, без сети</p>`;
+      : `<h1>mcp</h1><p class="settings-sub">${os("локальный сервер: claude code, codex и cursor работают с заметками на этом компьютере, без сети", "локальный сервер: claude code, codex и cursor работают с заметками на этом mac, без сети")}</p>`;
     let body = row("нейросеть", name, `<button class="pill" data-agent>изменить</button>`);
     if (skillsPage) {
       // Карточками, как SkillCard на маке: значок кораллом, название, что делает, кнопка внизу.

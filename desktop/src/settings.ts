@@ -5,18 +5,20 @@
 import type { Api, Prefs } from "./api";
 import { icon, type Glyph } from "./icons";
 import { choosePin, lockApi, type LockState } from "./lock";
-import { os } from "./platform";
+import { os, hello } from "./platform";
 import { blurIn } from "./motion";
+import { showMenu } from "./menu";
 
 type Page = "general" | "sync" | "search" | "templates" | "calendar" | "dictation" | "lock";
+// Порядок, подписи и значки — как NotesModel.SettingsPage и subtitle(_:) на маке.
 const PAGES: [Page, string, string, Glyph][] = [
-  ["general", "общие", "вид, запуск и текст заметок", "settings"],
-  ["sync", "синхронизация", "где лежат заметки и куда уходят", "git"],
-  ["search", "поиск", "по словам и по смыслу", "search"],
-  ["templates", "шаблоны", "шаблоны заметок и автоматизация", "file"],
-  ["calendar", "календарь", "задачи со сроком в календаре", "calendar"],
-  ["dictation", "надиктовка", "текст сразу в буфере", "microphone"],
-  ["lock", "вход", os("пинкод и windows hello", "пинкод и touch id"), "task"],
+  ["general", "общие", "как выглядит и запускается", "settings"],
+  ["sync", "синхронизация", "хранилище, история и github", "git"],
+  ["dictation", "надиктовка", "говоришь — текст появляется там, где курсор", "microphone"],
+  ["search", "поиск", "заметки, задачи, события, видео", "search"],
+  ["lock", "вход", os("пинкод и windows hello", "пинкод и touch id"), "check"],
+  ["calendar", "календарь", "задачи со сроком попадают в календарь", "calendar"],
+  ["templates", "шаблоны", "шаблоны и заметка на каждый день", "file"],
 ];
 
 export interface SettingsHost {
@@ -34,18 +36,23 @@ export interface SettingsHost {
 }
 
 let page: Page = "general";
-const plural = (n: number, one: string, few: string, many: string) => {
-  const d = n % 10, h = n % 100;
-  return d === 1 && h !== 11 ? one : d >= 2 && d <= 4 && (h < 12 || h > 14) ? few : many;
-};
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-const row = (title: string, subtitle: string, trailing: string) => `
-  <div class="setting"><div><b>${title}</b><small>${subtitle}</small></div>${trailing}</div>`;
+// Строка с выбором (ChoiceRow на маке): под заголовком — что выбрано (и пояснение через «·»), справа — «изменить» с меню.
+const row = (title: string, subtitle: string, trailing: string) => {
+  const chosen = /data-label="([^"]*)"/.exec(trailing)?.[1];
+  const sub = chosen !== undefined ? (subtitle ? `<span>${chosen}</span> · <span>${subtitle}</span>` : chosen) : subtitle;
+  return `
+  <div class="setting"><div><b>${title}</b>${sub ? `<small>${sub}</small>` : ""}</div>${trailing}</div>`;
+};
 const pill = (act: string, text: string) => `<button class="pill" data-set="${act}">${text}</button>`;
 const toggle = (key: string, on: boolean) => `<button class="switch${on ? " on" : ""}" data-toggle="${key}" role="switch" aria-checked="${on}"><i></i></button>`;
-const choice = (key: string, value: string | number, options: [string | number, string][]) =>
-  `<div class="segmented">${options.map(([v, t]) => `<button class="${v === value ? "on" : ""}" data-choice="${key}" data-value="${v}">${t}</button>`).join("")}</div>`;
+const menus = new Map<string, [string | number, string][]>();
+const choice = (key: string, value: string | number, options: [string | number, string][]) => {
+  menus.set(key, options);
+  const label = options.find(([v]) => v === value)?.[1] ?? String(value);
+  return `<button class="pill" data-menu="${key}" data-label="${label}">изменить</button>`;
+};
 const granted = (text: string) => `<span class="granted">${icon("taskDone")}${text}</span>`;
 const later = (text = "переезжает с мака") => `<span class="later">${text}</span>`;
 const note = (text: string) => `<p class="setting-note">${text}</p>`;
@@ -54,6 +61,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   let prefs = await host.backend.prefs();
   const vault = await host.backend.vaultPath();
   let git = await host.backend.gitStatus();
+  const templateCount = (await host.backend.templates().catch(() => [] as string[])).length;
   const folders = (await host.backend.tree().catch(() => null))?.folders.map((f) => f.name) ?? [];
   const { invoke } = await import("@tauri-apps/api/core");
   type ModelInfo = { id: string; installed: boolean; download_mb: number };
@@ -68,42 +76,45 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   let gh = await host.backend.githubStatus();
   // Вход по коду: код на экране, пока ждём подтверждения на github.com.
   let login: { code: string; url: string; error?: string } | null = null;
-  const ago = (s: number | null) => {
-    if (s === null) return "ещё не сохраняли";
-    const m = Math.floor((Date.now() / 1000 - s) / 60);
-    return m < 1 ? "только что" : m < 60 ? `${m} мин назад` : m < 1440 ? `${Math.floor(m / 60)} ч назад` : new Date(s * 1000).toLocaleDateString("ru", { day: "numeric", month: "short" });
-  };
   const isMac = document.body.classList.contains("tauri-macos");
 
   function body(): string {
     switch (page) {
       case "general":
-        return row("тема", "как в системе, светлая или тёмная", choice("theme", prefs.theme ?? "system", [["system", "система"], ["light", "светлая"], ["dark", "тёмная"]]))
-          + row("размер текста заметок", `${prefs.textSize ?? 15} — заголовки растут вместе с текстом`, choice("textSize", prefs.textSize ?? 15, [13, 15, 17, 19].map((n) => [n, String(n)])))
-          + row("язык интерфейса", "как в системе, русский, english, srpski", choice("uiLanguage", prefs.uiLanguage ?? "system", [["system", "система"], ["ru", "ru"], ["en", "en"], ["sr", "sr"]]))
-          + row("проверка орфографии", "подчёркивать слова с ошибкой", toggle("spellcheck", prefs.spellcheck ?? true))
-          + row("открывать при входе в " + (isMac ? "mac" : "windows"), "сразу после включения компьютера",
-            host.backend.inTauri && !isMac ? toggle("autostart", autostartOn) : later());
-      case "sync":
-        return row("папка хранилища", esc(vault ?? "не выбрана"), pill("vault", "изменить"))
-          + row("история в git", git.repo ? `${git.commits} ${plural(git.commits, "версия", "версии", "версий")} · любую правку можно откатить` : "версии сохраняются по расписанию",
-            git.repo ? granted("включено") : pill("git", "включить"))
-          + (git.repo ? row("сохранять версию", "", choice("commitMinutes", prefs.commitMinutes ?? 60, [[15, "15 мин"], [30, "30 мин"], [60, "час"], [180, "3 ч"]]))
-            + (gh.signed_in ? row("отправлять на github", "забирать правки с другого компьютера и отправлять свои", choice("pushMinutes", prefs.pushMinutes ?? 60, [[60, "час"], [180, "3 ч"], [1440, "день"], [10080, "неделя"]])) : "")
-            + row("последняя версия", ago(git.last_commit) + (git.pending ? ` · несохранённых файлов: ${git.pending}` : ""), pill("commit", "сохранить сейчас")) : "")
+        return row("тема", "", choice("theme", prefs.theme ?? "system", [["system", "как в системе"], ["light", "светлая"], ["dark", "тёмная"]]))
+          + row("язык", "", choice("uiLanguage", prefs.uiLanguage ?? "system", [["system", "как в системе"], ["ru", "Русский"], ["en", "English"], ["sr", "Srpski"]]))
+          + row(os("открывать при входе в windows", "открывать при входе в mac"), "чтобы хоткей надиктовки работал сразу",
+            host.backend.inTauri ? toggle("autostart", autostartOn) : later())
+          + row("размер текста заметок", "", choice("textSize", prefs.textSize ?? 15, [13, 15, 17, 19].map((n) => [n, String(n)])))
+          + row("проверка орфографии", "подчёркивать слова с ошибками", toggle("spellcheck", prefs.spellcheck ?? true))
+          + note(os("настройки хранятся на этом компьютере, в заметки не попадают", "настройки хранятся на этом mac, в заметки не попадают"));
+      case "sync": {
+        // Как SyncPage на маке: хранилище, история, github, как часто, последний коммит и отправка.
+        const every = (m: number) => m === 1440 ? "раз в сутки" : m === 10080 ? "раз в неделю" : m % 60 === 0 ? (m === 60 ? "раз в час" : `раз в ${m / 60} ч`) : `раз в ${m} мин`;
+        const date = (s: number) => { const d = new Date(s * 1000), t = d.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }), y = new Date(Date.now() - 864e5);
+          return d.toDateString() === new Date().toDateString() ? `сегодня в ${t}` : d.toDateString() === y.toDateString() ? `вчера в ${t}` : `${d.toLocaleDateString("ru", { day: "numeric", month: "short" })} в ${t}`; };
+        const home = (p: string) => p.replace(/^\/Users\/[^/]+/, "~").replace(/^[A-Za-z]:\\Users\\[^\\]+/, "~");
+        return row("папка хранилища", esc(vault ? home(vault) : "не выбрана"), pill("vault", "изменить"))
+          + row("история в git", "каждая правка остаётся в истории", git.repo ? granted("включено") : pill("git", "включить"))
           + githubRows()
-          + note("папка та же, что на маке: заметки — обычные файлы .md, окончания строк не меняются");
+          + row("сохранять версию", "", choice("commitMinutes", prefs.commitMinutes ?? 60, [15, 30, 60, 180].map((m) => [m, every(m)])))
+          + row("отправлять на github", "", choice("pushMinutes", prefs.pushMinutes ?? 1440, [60, 360, 1440, 10080].map((m) => [m, every(m)])))
+          + row("последний коммит", git.last_commit ? date(git.last_commit) : "с запуска правок не было", "")
+          + row("последняя отправка", prefs.lastSync ? date(Math.floor(prefs.lastSync / 1000)) : "ещё не отправляли", gh.signed_in ? pill("gh-sync", "отправить сейчас") : "")
+          + note(os("правки с двух компьютеров сохранятся обе", "правки с двух mac сохранятся обе"));
+      }
       case "search": {
         const status = !host.backend.inTauri ? later("в браузере нет")
           : downloading !== null ? `<span class="later">${Math.round(downloading * 100)}%</span>`
           : meaning ? granted("скачана") : pill("meaning-get", "скачать 471 мб");
-        return row("по словам", "заметки, задачи — всегда, без модели", granted("включено"))
+        return row("поиск", os("ctrl+k из любого места", "⌘K из любого места"), granted("работает"))
           + row("по смыслу", "multilingual-e5-small: находит заметку, даже если слов из запроса в ней нет", status)
-          + note("модель работает на этом компьютере, индекс — в данных приложения, не в папке заметок");
+          + note("находит заметки, задачи, события календаря, видео и слова внутри расшифровок");
       }
       case "templates":
-        return row("папка шаблонов", "обычные .md в папке «шаблоны»: {{дата}}, {{время}}, {{название}}", pill("templates", "открыть"))
-          + row("заметка на каждый день", "в папке «дневник» по шаблону «день», открывается при запуске", toggle("daily", prefs.daily ?? false));
+        return row("папка шаблонов", templateCount ? `${templateCount} ${templateCount % 10 === 1 && templateCount % 100 !== 11 ? "шаблон" : [2, 3, 4].includes(templateCount % 10) && ![12, 13, 14].includes(templateCount % 100) ? "шаблона" : "шаблонов"}` : "пока пусто, положи сюда .md", pill("templates", "открыть"))
+          + note("в шаблоне работают {{дата}}, {{время}} и {{название}}")
+          + row("заметка на каждый день", "в папке «дневник» по шаблону «день»", toggle("daily", prefs.daily ?? false));
       case "calendar":
         return row("календарь в приложении", "задачи с 📅 из заметок: день, неделя, месяц", granted("включено"))
           + row(isMac ? "календарь apple" : "календарь windows и outlook", isMac ? "переезжает с мака" : "файл .ics со всеми задачами со сроком", isMac ? later() : pill("ics", "сохранить .ics"))
@@ -111,35 +122,40 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
           + folders.map((f) => row(esc(f), "задачи этой папки — в задачах и календаре", toggle(`folder:${f}`, !(prefs.excludedFolders ?? []).includes(f)))).join("")
           + note(isMac ? "" : "системный календарь windows закрыт для приложений не из store — поэтому .ics");
       case "dictation": {
-        const hotkey = recording ? "нажмите сочетание…" : (prefs.hotkey ?? (isMac ? "alt+space" : "ctrl+alt+space")).split("+").join(" + ");
-        const modelRow = (id: string, title: string, sub: string) => {
-          const m = models.find((x) => x.id === id);
-          const status = !host.backend.inTauri ? later("в браузере нет")
-            : downloading !== null && downloadingId === id ? `<span class="later">${Math.round(downloading * 100)}%</span>`
-            : m?.installed ? `${granted("скачана")}${pill(`model-remove:${id}`, "удалить")}` : pill(`model-get:${id}`, `скачать ${m?.download_mb ?? ""} мб`);
-          return row(title, sub, status);
-        };
+        // Как DictationPage на маке: хоткей, язык, вставка, длина, модели строками, спикеры.
+        const mac = (c: string) => isMac ? c.split("+").map((k) => ({ ctrl: "⌃", alt: "⌥", shift: "⇧", super: "⌘" } as Record<string, string>)[k] ?? k).join(" ") : c.split("+").join(" + ");
+        const hotkey = recording ? "…" : mac(prefs.hotkey ?? (isMac ? "alt+space" : "ctrl+alt+space"));
         const chosenModel = prefs.speechModel ?? "gigaam-v3-punct";
-        return row("горячая клавиша", "нажать, сказать, нажать ещё раз: текст в буфере", `<span class="device-code">${hotkey}</span>${host.backend.inTauri ? pill("hotkey", "изменить") : ""}`)
-          + row("распознавать", "надиктовка и видео", choice("speechModel", chosenModel, [["gigaam-v3-punct", "gigaam"], ["whisper-small", "small"], ["whisper-large-v3-turbo", "turbo"]]))
-          + modelRow("gigaam-v3-punct", "gigaam", "русский с пунктуацией, на этом компьютере")
-          + modelRow("whisper-small", "whisper small", "99 языков, на этом компьютере")
-          + modelRow("whisper-large-v3-turbo", "whisper large-v3 turbo", "99 языков, точнее small, медленнее")
-          + (chosenModel.startsWith("whisper") ? row("язык речи", "для whisper", choice("language", prefs.language ?? "ru", [["auto", "сам"], ["ru", "ru"], ["en", "en"], ["uk", "uk"], ["de", "de"], ["fr", "fr"], ["es", "es"]])) : "")
-          + row("спикеры", "кто что сказал в расшифровке видео · 35 мб", !host.backend.inTauri ? later("в браузере нет")
+        const modelRow = (id: string, title: string, kind: string) => {
+          const m = models.find((x) => x.id === id);
+          const mb = m?.download_mb ?? 0;
+          const size = mb >= 1000 ? `${(mb / 1000).toFixed(1).replace(".", ",")} гб` : `${mb} мб`;
+          const status = !host.backend.inTauri ? later("в браузере нет")
+            : id === chosenModel && m?.installed ? granted("выбрана")
+            : downloading !== null && downloadingId === id ? `<span class="later">${Math.round(downloading * 100)}%</span>`
+            : m?.installed ? pill(`model-use:${id}`, "выбрать") : pill(`model-get:${id}`, "скачать");
+          return row(title, `${kind}, ${size}${m?.installed ? " · скачано" : ""}`, status);
+        };
+        const len = (m: number) => m === 0 ? "без предела" : `до ${m} мин`;
+        return row("горячая клавиша", recording ? "нажми сочетание или esc" : "надиктовка из любого приложения",
+            `<kbd class="keycap${recording ? " recording" : ""}">${hotkey}</kbd>${host.backend.inTauri ? `<button class="quiet-pill" data-set="hotkey">${recording ? "отмена" : "изменить"}</button>` : ""}`)
+          + row("язык речи", "на каком языке говоришь", choice("language", prefs.language ?? "ru", [["auto", "определять сам"], ["ru", "русский"], ["en", "английский"], ["uk", "украинский"], ["de", "немецкий"], ["fr", "французский"], ["es", "испанский"]]))
+          + row("вставлять в поле", "текст печатается сразу, копия остаётся в буфере", host.backend.inTauri ? toggle("paste", prefs.paste ?? false) : later())
+          + row("длина записи", "дольше — запись остановится сама", choice("maxMinutes", prefs.maxMinutes ?? 0, [0, 1, 3, 5, 10, 15, 30, 60].map((m) => [m, len(m)])))
+          + modelRow("gigaam-v3-punct", "GigaAM v3", "только русский, сразу с пунктуацией")
+          + modelRow("whisper-small", "Whisper small", "99 языков")
+          + modelRow("whisper-large-v3-turbo", "Whisper large-v3 turbo", "99 языков")
+          + row("спикеры в расшифровках", "кто говорит в видео и аудио, 35 мб", !host.backend.inTauri ? later("в браузере нет")
             : speakers ? granted("скачаны") : pill("speakers-get", "скачать"))
-          + row("длина записи", "потом распознается сама", choice("maxMinutes", prefs.maxMinutes ?? 0, [[0, "без предела"], [5, "5 мин"], [15, "15"], [30, "30"], [60, "60"]]))
-          + row("вставлять в поле", os("ctrl+v за вас в поле, где курсор; иначе — только буфер", "⌘v за вас в поле, где курсор; иначе — только буфер"), host.backend.inTauri ? toggle("paste", prefs.paste ?? false) : later())
-          + note("модели не входят в приложение: качаются один раз и проверяются по контрольной сумме");
+          + note(os("всё распознаётся на этом компьютере, без интернета", "всё распознаётся на этом mac, без интернета"));
       }
       case "lock":
         if (!lock) return row("пинкод", "в окне приложения", later("в браузере нет"));
-        return row("пинкод", lock.has_pin ? "при запуске и после 15 минут без приложения" : "4 цифры при входе в приложение",
-          lock.has_pin ? `${granted("включён")}${pill("pin-off", "убрать")}` : pill("pin-on", "задать"))
-          + row(isMac ? "touch id" : "windows hello", isMac ? "переезжает с мака"
-            : lock.hello ? "лицо или палец вместо пинкода — спросит при входе" : lock.has_pin ? "не настроен в windows: параметры → учётные записи → варианты входа" : "сначала задайте пинкод",
-            !isMac && lock.hello ? granted("включено") : later(""))
-          + note("заметки пинкодом не шифруются — их по-прежнему откроет любой редактор; пинкод закрывает приложение");
+        return row("пинкод", lock.has_pin ? "4 цифры" : "не задан", pill("pin-on", lock.has_pin ? "сменить" : "задать"))
+          + row(hello, os("лицо или палец вместо пинкода", "открывать отпечатком"), isMac ? `<span class="later">нет touch id</span>`
+            : lock.hello ? granted("включено") : `<span class="later">${lock.has_pin ? "нет windows hello" : "сначала пинкод"}</span>`)
+          + row("когда спрашивать", os("после блокировки компьютера или 15 минут без дела", "после блокировки mac или 15 минут без дела"), "")
+          + note("пинкод закрывает приложение, файлы заметок не шифруются");
     }
   }
 
@@ -148,11 +164,8 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       return row("код для github", login.error ? esc(login.error) : "введите его на github.com/login/device — жду подтверждения…",
         `<span class="device-code">${esc(login.code)}</span>${pill("gh-open", "скопировать и открыть")}${pill("gh-cancel", "отмена")}`);
     }
-    if (!gh.signed_in) return row("github", "приватный репозиторий notes, вход по коду без пароля", pill("gh-login", "войти"));
-    const repo = gh.remote?.replace(/^https:\/\/github\.com\//, "").replace(/\.git$/, "") ?? "notes";
-    return row("github", `${esc(repo)} · ${prefs.lastSync ? "отправлено " + ago(Math.floor(prefs.lastSync / 1000)) : "ещё не отправляли"}`, granted("подключено"))
-      + row("синхронизировать сейчас", "забрать правки с другого компьютера и отправить свои", pill("gh-sync", "синхронизировать"))
-      + row("выйти из github", "токен удалится из хранилища паролей", pill("gh-out", "выйти"));
+    if (!gh.signed_in) return row("github", "войди — заметки будут и на github", pill("gh-login", "войти"));
+    return row("github", "приватный репозиторий notes", granted("подключено"));
   }
 
   function render() {
@@ -190,6 +203,11 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       const key = b.dataset.toggle as "spellcheck" | "daily" | "paste";
       const current = prefs[key] ?? (key === "spellcheck");
       await save({ ...prefs, [key]: !current });
+    } else if (b.dataset.menu) {
+      const key = b.dataset.menu as "theme" | "textSize" | "commitMinutes" | "speechModel" | "language" | "uiLanguage" | "maxMinutes" | "pushMinutes";
+      const textual = key === "theme" || key === "speechModel" || key === "language" || key === "uiLanguage";
+      const r = b.getBoundingClientRect();
+      showMenu(r.left, r.bottom + 4, (menus.get(key) ?? []).map(([v, t]) => ({ label: t, run: () => void save({ ...prefs, [key]: textual ? v : Number(v) }) })));
     } else if (b.dataset.choice) {
       const key = b.dataset.choice as "theme" | "textSize" | "commitMinutes" | "speechModel" | "language" | "uiLanguage" | "maxMinutes" | "pushMinutes";
       const textual = key === "theme" || key === "speechModel" || key === "language" || key === "uiLanguage";
@@ -238,6 +256,8 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
       downloading = null;
       meaning = await invoke<boolean>("meaning_installed");
       render();
+    } else if (b.dataset.set?.startsWith("model-use:")) {
+      await save({ ...prefs, speechModel: b.dataset.set.slice(10) });
     } else if (b.dataset.set === "hotkey") {
       // Следующее нажатие с Ctrl/Alt/Win (или F-клавиша) — новый хоткей; Esc — отмена.
       recording = true;
