@@ -13,6 +13,8 @@ final class SyncHistory {
     private(set) var busy = false
     var selected: String?
     var error: String?
+    // «граф» в панели — большая доска со схемой версий вместо списка (03.11.2026).
+    var board = false
 
     func load(_ root: URL) {
         Task {
@@ -49,6 +51,10 @@ struct SyncSidebar: View {
         SidebarList(title: "синхронизация") {
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
+                    SidebarRow(glyph: .git, title: "версии", selected: !history.board) { history.board = false }
+                    SidebarRow(glyph: .spark, title: "граф", selected: history.board) { history.board = true }
+                        .padding(.bottom, 12)
+                    if !history.board {
                     // Граф как схема метро (03.11.2026): линия истории, станция — версия, выбранная — коралловая.
                     // Веток пока нет — одна линия; появятся — встанут рядом своими линиями.
                     ForEach(Array(history.commits.enumerated()), id: \.element.id) { index, commit in
@@ -82,6 +88,7 @@ struct SyncSidebar: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    }
                 }
             }
             .scrollIndicators(.never)
@@ -109,6 +116,7 @@ struct SyncScreen: View {
                 if !history.isRepo {
                     heading("истории нет", "включи git в настройках → синхронизация")
                 } else if let commit = history.commits.first(where: { $0.id == history.selected }) {
+                    if history.board { SyncBoard(history: history).padding(.bottom, 32) }
                     let pushed = SyncController.lastPush.map { commit.date <= $0 } ?? false
                     heading(commit.message, commit.date.formatted(.dateTime.day().month(.wide).hour().minute().locale(.app))
                         + " · " + (history.hasRemote ? (pushed ? String(localized: "на github") : String(localized: "ещё не на github"))
@@ -169,7 +177,8 @@ struct SyncScreen: View {
         .onChange(of: history.selected) {
             open = nil
             #if DEBUG
-            // -syncPreview YES — сразу открыть первый файл версии, для снимка.
+            // -syncPreview YES — сразу открыть первый файл версии, для снимка; -syncBoard YES — доска графа.
+            if UserDefaults.standard.bool(forKey: "syncBoard") { history.board = true }
             if UserDefaults.standard.bool(forKey: "syncPreview"), let id = history.selected,
                let file = history.commits.first(where: { $0.id == id })?.files.first {
                 toggle(file.path, commit: file.kind == .deleted ? older(than: id) ?? id : id, root: root)
@@ -246,5 +255,76 @@ private struct MetroLine: View {
             Rectangle().fill(bottom ? Theme.ink.opacity(0.25) : .clear).frame(width: 2)
         }
         .frame(width: 22)
+    }
+}
+
+// Доска графа: линия метро слева направо, старые версии слева. Станция — версия, клик выбирает её,
+// подписи чередуются сверху и снизу, чтобы не налезали; новый день — засечка с датой.
+private struct SyncBoard: View {
+    let history: SyncHistory
+    static let step: CGFloat = 96
+
+    var body: some View {
+        let commits = Array(history.commits.reversed())
+        let calendar = Calendar.current
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                ZStack(alignment: .leading) {
+                    Rectangle().fill(Theme.ink.opacity(0.25))
+                        .frame(width: max(0, CGFloat(commits.count - 1) * Self.step), height: 3)
+                        .offset(x: Self.step / 2)
+                    HStack(spacing: 0) {
+                        ForEach(Array(commits.enumerated()), id: \.element.id) { index, commit in
+                            let selected = history.selected == commit.id
+                            let newDay = index == 0 || !calendar.isDate(commit.date, inSameDayAs: commits[index - 1].date)
+                            let up = index % 2 == 0
+                            VStack(spacing: 6) {
+                                label(commit, selected).opacity(up ? 1 : 0)
+                                Circle()
+                                    .fill(selected ? Theme.coral : Theme.bg)
+                                    .overlay(Circle().strokeBorder(selected ? Theme.coral : Theme.ink.opacity(0.5), lineWidth: 3))
+                                    .frame(width: selected ? 20 : 14, height: selected ? 20 : 14)
+                                    .frame(height: 20)
+                                label(commit, selected).opacity(up ? 0 : 1)
+                            }
+                            .frame(width: Self.step)
+                            .contentShape(Rectangle())
+                            .onTapGesture { history.selected = commit.id }
+                            .overlay(alignment: .topLeading) {
+                                if newDay {
+                                    Text(commit.date.formatted(.dateTime.day().month(.abbreviated).locale(.app)))
+                                        .font(Martian.body.font(11))
+                                        .foregroundStyle(NotesLayout.gray)
+                                        .fixedSize()
+                                        .offset(y: -28)
+                                }
+                            }
+                            .id(commit.id)
+                        }
+                    }
+                }
+                .padding(.vertical, 40)
+                .padding(.horizontal, 8)
+                .animation(.smooth(duration: 0.25), value: history.selected)
+            }
+            .scrollIndicators(.never)
+            .frame(height: 190)
+            .background(RoundedRectangle(cornerRadius: 18).fill(Theme.bg.opacity(0.5)))
+            .onAppear { proxy.scrollTo(history.selected, anchor: .trailing) }
+        }
+    }
+
+    private func label(_ commit: VaultCommit, _ selected: Bool) -> some View {
+        VStack(spacing: 1) {
+            Text(commit.date.formatted(.dateTime.hour().minute().locale(.app)))
+                .font(Martian.body.font(10))
+                .foregroundStyle(NotesLayout.gray)
+            Text(commit.message)
+                .font(Martian.body.font(11))
+                .foregroundStyle(Theme.ink.opacity(selected ? 1 : 0.7))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+        }
+        .frame(width: Self.step - 8, height: 40)
     }
 }
