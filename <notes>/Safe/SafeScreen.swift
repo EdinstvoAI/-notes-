@@ -15,6 +15,29 @@ final class SafeModel {
     var open: UUID?
     var error: String?
     var unlocked: Bool { password != nil }
+    // Автозакрытие: 5 минут без дела, сон Mac или блокировка экрана — сейф закрывается, пароль из памяти уходит.
+    // -safeIdle 5 — для проверки автозакрытия без ожидания.
+    static let idle: TimeInterval = UserDefaults.standard.double(forKey: "safeIdle") > 0 ? UserDefaults.standard.double(forKey: "safeIdle") : 300
+    private var lastUse = Date()
+
+    init() {
+        let center = NSWorkspace.shared.notificationCenter
+        center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { SafeModel.shared.lock() }
+        }
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { SafeModel.shared.lock() }
+        }
+        Task { [weak self] in
+            while true {
+                try? await Task.sleep(for: .seconds(min(30, Self.idle)))
+                guard let self else { return }
+                if self.unlocked, Date().timeIntervalSince(self.lastUse) > Self.idle { self.lock() }
+            }
+        }
+    }
+
+    func touch() { lastUse = Date() }
 
     func unlock(_ vault: URL, _ text: String) {
         do {
@@ -22,6 +45,7 @@ final class SafeModel {
             if !PasswordSafe.exists(vault: vault) { try PasswordSafe.save([], vault: vault, password: text) }
             password = text
             error = nil
+            touch()
         } catch {
             self.error = String(localized: "пароль не подошёл")
         }
@@ -31,6 +55,7 @@ final class SafeModel {
 
     func save(_ vault: URL) {
         guard let password else { return }
+        touch()
         do { try PasswordSafe.save(items, vault: vault, password: password) } catch { self.error = error.localizedDescription }
     }
 
@@ -65,6 +90,7 @@ final class SafeModel {
     func delete(_ id: UUID, _ vault: URL) { items.removeAll { $0.id == id }; save(vault) }
 
     static func copy(_ text: String) {
+        shared.touch()
         let board = NSPasteboard.general
         board.clearContents()
         board.setString(text, forType: .string)
