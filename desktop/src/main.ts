@@ -5,6 +5,7 @@ import { api, type Api, type Folder, type Note } from "./api";
 export type { Note };
 import { icon, type Glyph } from "./icons";
 import { drawSlats } from "./slats";
+import { paintGlass } from "./glass";
 import { bindMarkdown, editorHTML } from "./editor";
 import { closeSearch, openSearch, searchShown } from "./search";
 import { showMenu, type MenuItem } from "./menu";
@@ -80,6 +81,8 @@ let page = $(".page");
 
 function paintSlats() {
   drawSlats(slats, app.clientWidth, 92, isDark());
+  // Капсулы шапки — жидкое стекло поверх только что нарисованных планок (glass.ts).
+  requestAnimationFrame(() => paintGlass([...app.querySelectorAll<HTMLElement>(".topbar .group")], slats, isDark()));
 }
 
 // Шапка сжимается по очереди, как на маке: сначала текст синхронизации (значок остаётся), потом
@@ -320,6 +323,7 @@ function renderContent() {
 function render() {
   renderNav();
   fitHeader();
+  requestAnimationFrame(paintSlats);
   renderTabs();
   renderSidebar();
   crumb.textContent = crumbText();
