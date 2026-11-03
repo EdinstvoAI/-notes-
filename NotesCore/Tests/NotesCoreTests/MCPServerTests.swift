@@ -46,6 +46,7 @@ struct MCPServerTests {
         let s = try server()
         #expect(call(s, "read_note", ["path": "../секрет.md"]).1)
         #expect(call(s, "read_note", ["path": ".git/config.md"]).1)
+        #expect(call(s, "read_note", ["path": ".safe/safe.md"]).1)   // сейф паролей нейронке не виден
         #expect(call(s, "read_note", ["path": "проекты/план.txt"]).1)
     }
 

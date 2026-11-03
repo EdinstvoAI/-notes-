@@ -155,7 +155,7 @@ private struct TopBar: View {
 
     // Разделы в шапке: все со словами → гибрид (значки, слово только у выбранного) → только значки.
     enum Fit { case full, hybrid, icons }
-    private static let titles = ["заметки", "задачи", "календарь", "видео", "синхронизация", "mcp", "настройки"]
+    private static let titles = ["заметки", "задачи", "календарь", "видео", "синхронизация", "mcp", "пароли", "настройки"]
 
     var body: some View {
         GeometryReader { geo in
@@ -307,6 +307,7 @@ private struct TopBar: View {
         case .settings: "настройки"
         case .sync: "синхронизация"
         case .mcp: "mcp"
+        case .safe: "пароли"
         }
     }
 
@@ -327,6 +328,7 @@ private struct TopBar: View {
             // Синхронизация — своим разделом, а не кликом по статусу (03.11.2026, «статус не кликабельный»).
             section("синхронизация", .git, .sync, fit)
             section("mcp", .spark, .mcp, fit)
+            section("пароли", .check, .safe, fit)
             section("настройки", .settings, .settings, fit)
         }
     }
@@ -509,6 +511,7 @@ struct SectionContent: View {
                 case .settings: SettingsScreen(model: model)
                 case .sync: SyncScreen(model: model)
                 case .mcp: MCPScreen(model: model)
+                case .safe: SafeScreen(model: model)
                 }
             }
             // Раздел, заметка или папка сменились — старое уходит в размытие, новое из него проявляется,
@@ -553,7 +556,7 @@ struct SectionContent: View {
                 case .video:
                     IconButton(glyph: .plus, help: "добавить видео или аудио") { model.video.choose() }
                         .keyboardShortcut("n", modifiers: .command)
-                case .settings, .sync, .mcp:
+                case .settings, .sync, .mcp, .safe:
                     EmptyView()
                 }
             }
@@ -581,6 +584,7 @@ struct SectionContent: View {
         case .settings: String(localized: "настройки / ") + model.settingsPage.rawValue.localized
         case .sync: String(localized: "синхронизация")
         case .mcp: "mcp"
+        case .safe: String(localized: "пароли") + " / " + model.safe.kind.title.localized
         }
     }
 }
@@ -789,6 +793,8 @@ struct SectionSidebar: View {
             SyncSidebar(model: model)
         case .mcp:
             MCPSidebar(model: model)
+        case .safe:
+            SafeSidebar(model: model)
         case .settings:
             SidebarList(title: "настройки") {
                 ForEach(NotesModel.SettingsPage.allCases, id: \.self) { page in

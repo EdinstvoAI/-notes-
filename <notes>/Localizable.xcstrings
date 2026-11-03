@@ -1399,6 +1399,22 @@
         }
       }
     },
+    "аккаунт": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "account"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nalog"
+          }
+        }
+      }
+    },
     "английский": {
       "localizations": {
         "en": {
@@ -1507,6 +1523,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "bez roka"
+          }
+        }
+      }
+    },
+    "в зашифрованном файле .safe/safe.enc, на github — только шифром": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "in the encrypted file .safe/safe.enc; github only gets ciphertext"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "u šifrovanoj datoteci .safe/safe.enc; na githubu samo šifra"
           }
         }
       }
@@ -2615,6 +2647,22 @@
         }
       }
     },
+    "добавить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "add"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dodaj"
+          }
+        }
+      }
+    },
     "добавить видео или аудио": {
       "localizations": {
         "en": {
@@ -2711,6 +2759,22 @@
         }
       }
     },
+    "ещё раз": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "again"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ponovo"
+          }
+        }
+      }
+    },
     "ещё раз, чтобы не ошибиться": {
       "localizations": {
         "en": {
@@ -2755,6 +2819,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "preuzimanje sa githuba: %@"
+          }
+        }
+      }
+    },
+    "забудешь — сейф не откроет никто, даже мы. запиши пароль на бумаге": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "forget it and nobody can open the safe, not even us. write it on paper"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ako je zaboraviš, niko ne može da otvori sef. zapiši je na papiru"
           }
         }
       }
@@ -2979,6 +3059,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "zatvori"
+          }
+        }
+      }
+    },
+    "закрыть сейф": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "lock the safe"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "zaključaj sef"
           }
         }
       }
@@ -3415,6 +3511,22 @@
         }
       }
     },
+    "коды 2fa": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2fa codes"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2fa kodovi"
+          }
+        }
+      }
+    },
     "команда в терминал, один раз": {
       "localizations": {
         "en": {
@@ -3571,6 +3683,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "skroluj dole"
+          }
+        }
+      }
+    },
+    "логин": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "login"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "korisnik"
+          }
+        }
+      }
+    },
+    "мастер-пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "master password"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "glavna lozinka"
           }
         }
       }
@@ -4807,6 +4951,54 @@
         }
       }
     },
+    "пароли": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "passwords"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "lozinke"
+          }
+        }
+      }
+    },
+    "пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "password"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "lozinka"
+          }
+        }
+      }
+    },
+    "пароль не подошёл": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "wrong password"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pogrešna lozinka"
+          }
+        }
+      }
+    },
     "пару моментиков": {
       "localizations": {
         "en": {
@@ -5063,6 +5255,22 @@
         }
       }
     },
+    "показать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "show"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "prikaži"
+          }
+        }
+      }
+    },
     "получить новый код": {
       "localizations": {
         "en": {
@@ -5267,6 +5475,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "smisli ponovo"
+          }
+        }
+      }
+    },
+    "придумай мастер-пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "create a master password"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "smisli glavnu lozinku"
           }
         }
       }
@@ -5639,6 +5863,22 @@
         }
       }
     },
+    "сайт": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "website"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sajt"
+          }
+        }
+      }
+    },
     "сбросить пинкод": {
       "localizations": {
         "en": {
@@ -5703,6 +5943,22 @@
         }
       }
     },
+    "сейф открывается мастер-паролем — его не знает никто, кроме тебя": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the safe opens with a master password only you know"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sef se otvara glavnom lozinkom koju znaš samo ti"
+          }
+        }
+      }
+    },
     "сейчас недоступна": {
       "localizations": {
         "en": {
@@ -5715,6 +5971,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "trenutno nedostupno"
+          }
+        }
+      }
+    },
+    "секрет или otpauth://": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "secret or otpauth://"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tajna ili otpauth://"
+          }
+        }
+      }
+    },
+    "секреты": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "secrets"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tajne"
           }
         }
       }
@@ -5943,6 +6231,22 @@
         }
       }
     },
+    "скрыть": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hide"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sakrij"
+          }
+        }
+      }
+    },
     "слишком много попыток, подожди %@": {
       "localizations": {
         "en": {
@@ -6099,6 +6403,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "napravi folder"
+          }
+        }
+      }
+    },
+    "создать сейф": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "create safe"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "napravi sef"
+          }
+        }
+      }
+    },
+    "сохранить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "save"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sačuvaj"
           }
         }
       }

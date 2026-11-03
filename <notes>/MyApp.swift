@@ -152,6 +152,7 @@ private struct RootView: View {
             case "settings": model.section = .settings
             case "sync": model.section = .sync
             case "mcp": model.section = .mcp
+            case "safe": model.section = .safe
             default: break
             }
             if let page = UserDefaults.standard.string(forKey: "settingsPage").flatMap(NotesModel.SettingsPage.init) {
