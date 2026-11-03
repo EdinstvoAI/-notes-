@@ -1595,6 +1595,38 @@
         }
       }
     },
+    "вернуть всё к версии от %@?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "restore everything to the version from %@?"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vratiti sve na verziju od %@?"
+          }
+        }
+      }
+    },
+    "вернуть всё к этой версии": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "restore everything to this version"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vrati sve na ovu verziju"
+          }
+        }
+      }
+    },
     "версии сохраняются по расписанию": {
       "localizations": {
         "en": {
@@ -1607,6 +1639,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "verzije se čuvaju po rasporedu"
+          }
+        }
+      }
+    },
+    "версий пока нет": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no versions yet"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "još nema verzija"
           }
         }
       }
@@ -1739,6 +1787,22 @@
         }
       }
     },
+    "включи git в настройках → синхронизация": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "turn on git in settings → sync"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "uključi git u podešavanjima → sinhronizacija"
+          }
+        }
+      }
+    },
     "включить": {
       "localizations": {
         "en": {
@@ -1863,6 +1927,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "sve beleške"
+          }
+        }
+      }
+    },
+    "все заметки станут как тогда; текущее состояние останется в истории": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "all notes become as they were; the current state stays in history"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sve beleške postaju kao tada; trenutno stanje ostaje u istoriji"
           }
         }
       }
@@ -2427,6 +2507,22 @@
         }
       }
     },
+    "ещё не на github": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "not on github yet"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "još nije na githubu"
+          }
+        }
+      }
+    },
     "ещё не отправляли": {
       "localizations": {
         "en": {
@@ -2859,6 +2955,22 @@
         }
       }
     },
+    "изменён": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "changed"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "izmenjen"
+          }
+        }
+      }
+    },
     "или нажми, чтобы выбрать · mp4, mov, mp3, wav, flac и другие": {
       "localizations": {
         "en": {
@@ -2919,6 +3031,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "španski"
+          }
+        }
+      }
+    },
+    "истории нет": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no history"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nema istorije"
           }
         }
       }
@@ -3339,6 +3467,22 @@
         }
       }
     },
+    "на github": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "on github"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "na githubu"
+          }
+        }
+      }
+    },
     "на неделе": {
       "localizations": {
         "en": {
@@ -3607,6 +3751,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "nije postavljen"
+          }
+        }
+      }
+    },
+    "не надо": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cancel"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ne treba"
           }
         }
       }
@@ -3883,6 +4043,22 @@
         }
       }
     },
+    "новый": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "new"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nov"
+          }
+        }
+      }
+    },
     "новый календарь": {
       "localizations": {
         "en": {
@@ -4011,6 +4187,22 @@
         }
       }
     },
+    "откат — новая версия сверху: его тоже можно отменить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a rollback is a new version on top: it can be undone too"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vraćanje je nova verzija na vrhu: i ono se može poništiti"
+          }
+        }
+      }
+    },
     "открой github.com/login/device и введи код. пароль не нужен": {
       "localizations": {
         "en": {
@@ -4119,6 +4311,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "otkaži"
+          }
+        }
+      }
+    },
+    "отменить «%@»?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "undo “%@”?"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "poništiti „%@“?"
+          }
+        }
+      }
+    },
+    "отменить правки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "undo changes"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "poništi izmene"
+          }
+        }
+      }
+    },
+    "отменить эти правки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "undo these changes"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "poništi ove izmene"
           }
         }
       }
@@ -4695,6 +4935,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "smisli pin"
+          }
+        }
+      }
+    },
+    "приложение сохраняет версию по расписанию": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the app saves a version on schedule"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aplikacija čuva verziju po rasporedu"
           }
         }
       }
@@ -5563,6 +5819,22 @@
         }
       }
     },
+    "только на этом mac": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "only on this mac"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "samo na ovom macu"
+          }
+        }
+      }
+    },
     "только русский, сразу с пунктуацией": {
       "localizations": {
         "en": {
@@ -5671,6 +5943,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "obriši…"
+          }
+        }
+      }
+    },
+    "удалён": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "deleted"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "obrisan"
+          }
+        }
+      }
+    },
+    "уйдут только правки этой версии, всё, что было после, останется": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "only this version's changes go away, everything after stays"
+          }
+        },
+        "sr-Latn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nestaju samo izmene ove verzije, sve posle ostaje"
           }
         }
       }

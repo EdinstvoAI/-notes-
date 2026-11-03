@@ -104,6 +104,14 @@ final class OnboardingModel {
             try? FileManager.default.createDirectory(at: base.appendingPathComponent("Идеи для видео"), withIntermediateDirectories: true)
             try? png.write(to: base.appendingPathComponent("Идеи для видео/обложка.png"))
         }
+        // -testVaultGit YES — с историей из трёх версий, для снимков раздела «синхронизация».
+        if UserDefaults.standard.bool(forKey: "testVaultGit"), let git = try? GitVault.prepare(at: base).vault {
+            _ = try? git.commitAll(message: "заметки")
+            try? "молоко, хлеб, сыр".write(to: base.appendingPathComponent("Список покупок.md"), atomically: true, encoding: .utf8)
+            _ = try? git.commitAll(message: "изменено: Список покупок")
+            try? FileManager.default.removeItem(at: base.appendingPathComponent("личное/книги.md"))
+            _ = try? git.commitAll(message: "удалено: книги")
+        }
         return base
     }
     #endif

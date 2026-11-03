@@ -146,6 +146,7 @@ private struct RootView: View {
             case "calendar": model.section = .calendar
             case "video": model.section = .video
             case "settings": model.section = .settings
+            case "sync": model.section = .sync
             default: break
             }
             if let page = UserDefaults.standard.string(forKey: "settingsPage").flatMap(NotesModel.SettingsPage.init) {

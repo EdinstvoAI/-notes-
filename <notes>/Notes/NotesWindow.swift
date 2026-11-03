@@ -264,6 +264,8 @@ private struct TopBar: View {
                     .clipped()
                     .animation(.smooth(duration: 0.25), value: fits)
                     .contentShape(Rectangle())
+                    // Клик по синхронизации — раздел с версиями и откатом (03.11.2026).
+                    .onTapGesture { model.flush(); model.section = .sync }
                     .onHover { syncHovered = $0 }
                     .hoverHint(sync.status(now: .now), when: !fits && syncHovered)
                 }
@@ -305,6 +307,7 @@ private struct TopBar: View {
         case .calendar: "календарь"
         case .video: "видео"
         case .settings: "настройки"
+        case .sync: ""
         }
     }
 
@@ -502,6 +505,7 @@ struct SectionContent: View {
                         .transformEnvironment(\.pageWidth) { $0 += 116 - 24 - 15 }
                 case .video: VideoScreen(model: model)
                 case .settings: SettingsScreen(model: model)
+                case .sync: SyncScreen(model: model)
                 }
             }
             // Раздел, заметка или папка сменились — старое уходит в размытие, новое из него проявляется,
@@ -546,7 +550,7 @@ struct SectionContent: View {
                 case .video:
                     IconButton(glyph: .plus, help: "добавить видео или аудио") { model.video.choose() }
                         .keyboardShortcut("n", modifiers: .command)
-                case .settings:
+                case .settings, .sync:
                     EmptyView()
                 }
             }
@@ -572,6 +576,7 @@ struct SectionContent: View {
         case .calendar: String(localized: "календарь")
         case .video: model.video.crumb
         case .settings: String(localized: "настройки / ") + model.settingsPage.rawValue.localized
+        case .sync: String(localized: "синхронизация")
         }
     }
 }
@@ -776,6 +781,8 @@ struct SectionSidebar: View {
                 }
                 VideoFolders(video: model.video)
             }
+        case .sync:
+            SyncSidebar(model: model)
         case .settings:
             SidebarList(title: "настройки") {
                 ForEach(NotesModel.SettingsPage.allCases, id: \.self) { page in

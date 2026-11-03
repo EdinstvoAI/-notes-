@@ -42,10 +42,11 @@ import SwiftUI
     private var editGeneration = 0
 
     // Раздел окна: шапка переключает заметки, задачи, календарь и видео; настройки — по ⌘,.
-    enum Section: Hashable { case notes, tasks, calendar, video, settings }
+    enum Section: Hashable { case notes, tasks, calendar, video, settings, sync }
     var section: Section = .notes
     let tasks: TasksModel
     let video: VideoModel
+    let history = SyncHistory()
 
     enum SettingsPage: String, CaseIterable {
         case general = "общие", sync = "синхронизация", dictation = "надиктовка", search = "поиск", lock = "вход", calendar = "календарь"
