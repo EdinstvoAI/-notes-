@@ -7,6 +7,7 @@
 
 pub mod auth;
 pub mod autostart;
+pub mod calendar;
 pub mod clipboard;
 pub mod files;
 pub mod paste;

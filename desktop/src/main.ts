@@ -239,6 +239,8 @@ function renderSidebar() {
     }
   } else if (state.section === "tasks") {
     // Фильтры рисует сам экран задач (tasks.ts).
+  } else if (state.section === "calendar") {
+    // Список календарей рисует экран календаря (calendar.ts).
   } else {
     sidebar.innerHTML = "";
   }
@@ -363,7 +365,7 @@ async function mountPreview() {
 function mountSection() {
   void mountPreview();
   const cal = page.querySelector<HTMLElement>(".cal-root");
-  if (cal) mountCalendar(cal, { backend, openNote, tasks: visibleTasks });
+  if (cal) mountCalendar(cal, sidebar, { backend, openNote, tasks: visibleTasks });
   const tasks = page.querySelector<HTMLElement>(".tasks-root");
   const video = page.querySelector<HTMLElement>(".video-root");
   if (video) void mountVideo(video, sidebar, { openNote, reload, onCrumb: (t) => (crumb.textContent = t), inTauri: backend.inTauri });

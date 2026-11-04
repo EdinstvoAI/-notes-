@@ -8,6 +8,25 @@
 import type { Api, TaskRow } from "./api";
 import { icon } from "./icons";
 import { os } from "./platform";
+import { invoke } from "@tauri-apps/api/core";
+
+// Календарь Apple (EventKit, `platform/calendar.rs`). На Windows `supported: false` — экран остаётся на задачах.
+interface AppleState { supported: boolean; access: "full" | "none" | "denied" }
+interface AppleCalendar { id: string; title: string; color: string; main: boolean }
+interface AppleEvent { id: string; title: string; start: number; end: number; all_day: boolean; calendar: string; color: string }
+/** Строка экрана: задача из заметки или событие календаря (`ev`); у события задачи есть и то, и то. */
+type Row = TaskRow & { ev?: AppleEvent; linked?: boolean };
+const taskKey = (t: TaskRow) => `${t.note}|${t.title}`;
+const pref = (k: string, v?: string) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { /* без хранилища */ } return null; };
+/** Задачи с датой → события в календаре для задач, как `CalendarSync.sync` на маке (и с экрана задач). */
+export async function syncApple(real: TaskRow[]) {
+  const wanted = real.filter((t) => !t.done && t.date).map((t) => ({
+    key: taskKey(t), title: t.title, all_day: !t.time, minutes: t.minutes,
+    start: new Date(`${t.date}T${t.time ?? "00:00"}`).getTime(),
+  }));
+  await invoke("cal_sync", { tasks: wanted, calendar: pref("tasksCalendar"), minutes: 30 }).catch(() => {});
+}
+const hidden = () => new Set<string>(JSON.parse(pref("hiddenCalendars") ?? "[]"));
 
 type Mode = "day" | "week" | "month";
 const MODES: [Mode, string][] = [["day", "день"], ["week", "неделя"], ["month", "месяц"]];
@@ -88,8 +107,11 @@ export function laneBox(l: Lane, colW: number): { left: number; width: number } 
   return { left: 3 + left, width: fits ? region / l.count : region - (left - base) };
 }
 
-export function mountCalendar(root: HTMLElement, host: CalendarHost) {
-  let tasks: TaskRow[] = [];
+export function mountCalendar(root: HTMLElement, sidebar: HTMLElement, host: CalendarHost) {
+  let tasks: Row[] = [];
+  let apple: AppleState | null = null;
+  let calendars: AppleCalendar[] = [];
+  let adding = false;
 
   const controls = () => `
     <div class="cal-controls">
@@ -97,7 +119,7 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
       <button class="cal-today" data-cal="today">сегодня</button>
       <button class="icon-button" data-cal="next" title="вперёд">${icon("chevronRight")}</button>
       <button class="icon-button" data-cal="new" title="новая задача">${icon("plus")}</button>
-      <button class="cal-today" data-cal="ics" title="${os("задачи в Календарь Windows или Outlook: откройте файл .ics", "задачи в Календарь: откройте файл .ics")}">.ics</button>
+      ${apple?.supported ? "" : `<button class="cal-today" data-cal="ics" title="${os("задачи в Календарь Windows или Outlook: откройте файл .ics", "задачи в Календарь: откройте файл .ics")}">.ics</button>`}
       <div class="cal-modes">${MODES.map(([m, t]) => `<button class="cal-mode${m === view.mode ? " on" : ""}" data-mode="${m}">${t}</button>`).join("")}</div>
     </div>`;
 
@@ -116,8 +138,8 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
         const height = Math.max(HOUR / 4 - 2, ((t.minutes ?? 60) / 60) * HOUR - 2);
         const end = hhmm(Math.min(toMin(t.time!) + (t.minutes ?? 60), 1439));
         const short = height < 36;
-        return `<div class="cal-event${t.done ? " done" : ""}${t.urgent ? " urgent" : ""}${short ? " short" : ""}" data-task="${tasks.indexOf(t)}"
-          style="top:${top}px;height:${height}px;left:${box.left}px;width:${box.width}px;z-index:${1 + toMin(t.time!) + lane.level / 10}${lane.level ? ";box-shadow:inset 3px 0 0 var(--coral),0 1px 3px rgba(0,0,0,.25)" : ""}"
+        return `<div class="cal-event${(t as Row).ev?.color ? " apple" : ""}${t.done ? " done" : ""}${t.urgent ? " urgent" : ""}${short ? " short" : ""}" data-task="${tasks.indexOf(t)}"
+          style="${(t as Row).ev ? `--ev:${(t as Row).ev!.color};` : ""}top:${top}px;height:${height}px;left:${box.left}px;width:${box.width}px;z-index:${1 + toMin(t.time!) + lane.level / 10}${lane.level ? ";box-shadow:inset 3px 0 0 var(--coral),0 1px 3px rgba(0,0,0,.25)" : ""}"
           title="${esc(t.title)}&#10;${t.time} – ${end}">
           <span>${esc(t.title)}</span><small>${t.time}${short ? "" : "–" + end}</small><i class="cal-resize"></i></div>`;
       }).join("");
@@ -127,7 +149,7 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
     const heads = list.map((d) => `<div class="cal-day${iso(d) === today ? " today" : ""}">
       <small>${d.toLocaleDateString("ru", { weekday: "short" })}</small><b>${d.getDate()}</b></div>`).join("");
     const allday = list.map((d) => `<div class="cal-allday-col">${tasks.filter((t) => t.date === iso(d) && !t.time)
-      .map((t) => `<div class="cal-chip${t.done ? " done" : ""}" data-task="${tasks.indexOf(t)}" title="${esc(t.title)}">${esc(t.title)}</div>`).join("")}</div>`).join("");
+      .map((t) => `<div class="cal-chip${t.done ? " done" : ""}" data-task="${tasks.indexOf(t)}"${(t as Row).ev ? ` style="--ev:${(t as Row).ev!.color}"` : ""} title="${esc(t.title)}">${esc(t.title)}</div>`).join("")}</div>`).join("");
     const hours = Array.from({ length: 24 }, (_, h) => `<div class="cal-hour" style="top:${h * HOUR}px"><small>${h}:00</small></div>`).join("");
     return `
       <div class="cal-heads" style="--n:${list.length}"><div></div>${heads}</div>
@@ -152,12 +174,80 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
     return `<div class="cal-month"><div class="cal-month-names">${names}</div><div class="cal-month-grid">${cells}</div></div>`;
   }
 
+  /** Окно видимых дней в мс — для событий EventKit. */
+  function range(): [number, number] {
+    if (view.mode === "month") {
+      const s = startOfWeek(new Date(view.anchor.getFullYear(), view.anchor.getMonth(), 1));
+      return [s.getTime(), addDays(s, 42).getTime()];
+    }
+    const d = days();
+    return [d[0].getTime(), addDays(d[d.length - 1], 1).getTime()];
+  }
+
+  async function load() {
+    const real = await host.tasks();
+    apple = await invoke<AppleState>("cal_state").catch(() => null);
+    if (apple?.supported && apple.access === "full") {
+      await syncApple(real);
+      calendars = await invoke<AppleCalendar[]>("cal_calendars").catch(() => []);
+      const links = await invoke<Record<string, string>>("cal_links").catch(() => ({} as Record<string, string>));
+      const byEvent = new Map(Object.entries(links).map(([k, id]) => [id, k]));
+      const [a, b] = range();
+      const off = hidden();
+      const events = (await invoke<AppleEvent[]>("cal_events", { start: a, end: b }).catch(() => [] as AppleEvent[])).filter((e) => !off.has(e.calendar));
+      tasks = events.map((ev) => {
+        const key = byEvent.get(ev.id);
+        const task = key ? real.find((t) => taskKey(t) === key) : undefined;
+        const d = new Date(ev.start);
+        return {
+          ...(task ?? { note: "", line: -1, raw: "", urgent: false }), done: false, ev, linked: !!task, title: ev.title,
+          date: iso(d), time: ev.all_day ? null : hhmm(d.getHours() * 60 + d.getMinutes()),
+          minutes: ev.all_day ? null : Math.max(15, Math.round((ev.end - ev.start) / 60000)),
+        } as Row;
+      });
+    } else tasks = apple?.supported ? [] : real;
+  }
+
+  /** Перенос или растяжка: событие задачи — через строку в заметке, обычное — в самом календаре. */
+  async function setWhen(t: Row, day: string | null, time: string | null, minutes: number | null) {
+    if (t.ev && !t.linked) {
+      const start = new Date(`${day}T${time ?? "00:00"}`).getTime();
+      await invoke("cal_move", { id: t.ev.id, start, end: time ? start + (minutes ?? 60) * 60000 : start }).catch(() => {});
+    } else await host.backend.setDue(t, day, time, minutes);
+  }
+
+  function renderSidebar() {
+    if (!apple?.supported) { sidebar.innerHTML = ""; return; }
+    const off = hidden(), tasksCal = pref("tasksCalendar") ?? calendars.find((c) => c.main)?.id;
+    sidebar.innerHTML = calendars.map((c) => `<button class="row cal-list${off.has(c.id) ? " off" : ""}" data-calendar="${esc(c.id)}" style="--ev:${c.color}">
+      <i class="cal-check"></i><span>${esc(c.title)}</span>${c.id === tasksCal ? `<small class="count">задачи</small>` : `<small class="cal-here" data-tasks-here="${esc(c.id)}">задачи сюда</small>`}</button>`).join("")
+      + (adding ? `<input class="cal-new-name" placeholder="название" spellcheck="false">`
+        : `<button class="row quiet-row" data-cal="new-calendar">${icon("plus")}<span>новый календарь</span></button>`);
+    const input = sidebar.querySelector<HTMLInputElement>(".cal-new-name");
+    if (input) {
+      input.focus();
+      const done = async (save: boolean) => {
+        if (!adding) return;
+        adding = false;
+        if (save && input.value.trim()) await invoke("cal_create_calendar", { title: input.value.trim() }).catch(() => {});
+        await render(true);
+      };
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") void done(true); if (e.key === "Escape") void done(false); });
+      input.addEventListener("blur", () => void done(true), { once: true });
+    }
+  }
+
   async function render(keepScroll = false) {
-    tasks = await host.tasks();
+    await load();
     const scroll = root.querySelector<HTMLElement>(".cal-scroll")?.scrollTop;
+    const sub = !apple?.supported ? "задачи с датой из заметок" : apple.access === "full" ? "синхронизировано с apple calendar" : "нет доступа к календарю";
+    const body = apple?.supported && apple.access !== "full"
+      ? `<button class="cal-grant" data-cal="grant">дать доступ</button>`
+      : view.mode === "month" ? monthHTML() : gridHTML();
     root.innerHTML = `<div class="cal">
-      <header class="cal-head"><div><h1>${title()}</h1><p>задачи с датой из заметок</p></div>${controls()}</header>
-      <div class="cal-body">${view.mode === "month" ? monthHTML() : gridHTML()}</div></div>`;
+      <header class="cal-head"><div><h1>${title()}</h1><p>${sub}</p></div>${controls()}</header>
+      <div class="cal-body">${body}</div></div>`;
+    renderSidebar();
     const sc = root.querySelector<HTMLElement>(".cal-scroll");
     if (sc) sc.scrollTop = keepScroll && scroll !== undefined ? scroll : 8 * HOUR;
   }
@@ -190,26 +280,35 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
   }
 
   // Карточка события (EventCard на маке): название правится прямо тут, «открыть заметку», «удалить».
-  function card(task: TaskRow, x: number, y: number) {
+  function card(task: Row, x: number, y: number) {
+    const plain = !!task.ev && !task.linked;
     root.querySelector(".cal-draft")?.remove();
     const box = document.createElement("div");
     box.className = "cal-draft";
-    const when = `${new Date(task.date + "T12:00").toLocaleDateString("ru", { day: "numeric", month: "long" })}${task.time ? `, ${task.time}–${hhmm(Math.min(toMin(task.time) + (task.minutes ?? 60), 1439))}` : ""}`;
-    box.innerHTML = `<input value="${esc(task.title)}" spellcheck="false"><small>${when} · ${esc(task.note.replace(/\.md$/, ""))}</small>
-      <div class="cal-card-actions"><button class="pill" data-card="open">открыть заметку</button><button class="pill danger" data-card="delete">удалить</button></div>`;
+    const when = `${new Date(task.date + "T12:00").toLocaleDateString("ru", { day: "numeric", month: "long" })}${task.time ? `, ${task.time}–${hhmm(Math.min(toMin(task.time) + (task.minutes ?? 60), 1439))}` : plain ? ", весь день" : ""}`;
+    box.innerHTML = `<input value="${esc(task.title)}" spellcheck="false"><small>${when}${plain ? "" : " · " + esc(task.note.replace(/\.md$/, ""))}</small>
+      <div class="cal-card-actions">${plain ? "" : `<button class="pill" data-card="open">открыть заметку</button>`}<button class="pill danger" data-card="delete">удалить</button></div>`;
     const r = root.getBoundingClientRect();
     box.style.left = `${Math.min(x - r.left, r.width - 260)}px`;
     box.style.top = `${Math.min(y - r.top, r.height - 140)}px`;
     root.append(box);
     const input = box.querySelector("input")!;
     input.addEventListener("keydown", async (k) => {
-      if (k.key === "Enter" && input.value.trim() && input.value.trim() !== task.title) { await host.backend.setTitle(task, input.value).catch(() => {}); await render(true); }
+      if (k.key === "Enter" && input.value.trim() && input.value.trim() !== task.title) {
+        if (plain) await invoke("cal_rename", { id: task.ev!.id, title: input.value.trim() }).catch(() => {});
+        else await host.backend.setTitle(task, input.value).catch(() => {});
+        await render(true);
+      }
       if (k.key === "Escape") box.remove();
     });
     box.addEventListener("click", async (e) => {
       const act = (e.target as HTMLElement).closest<HTMLElement>("[data-card]")?.dataset.card;
       if (act === "open") await host.openNote(task.note);
-      if (act === "delete") { await host.backend.deleteTask(task).catch(() => {}); await render(true); }
+      if (act === "delete") {
+        if (plain) await invoke("cal_remove", { id: task.ev!.id }).catch(() => {});
+        else await host.backend.deleteTask(task).catch(() => {});
+        await render(true);
+      }
     });
     setTimeout(() => addEventListener("pointerdown", function close(ev) {
       if (!box.contains(ev.target as Node)) { box.remove(); removeEventListener("pointerdown", close, true); }
@@ -224,6 +323,7 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
     if (b?.dataset.cal === "today") { view.anchor = new Date(); return render(); }
     if (b?.dataset.mode) { view.mode = b.dataset.mode as Mode; return render(); }
     if (b?.dataset.openDay) { view.anchor = new Date(b.dataset.openDay + "T12:00"); view.mode = "day"; return render(); }
+    if (b?.dataset.cal === "grant") { await invoke("cal_request").catch(() => {}); return render(); }
     if (b?.dataset.cal === "ics") {
       const saved = await host.backend.exportIcs();
       if (saved) { b.textContent = "сохранено"; setTimeout(() => (b.textContent = ".ics"), 1600); }
@@ -267,7 +367,7 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
       };
       const stop = async () => {
         removeEventListener("pointermove", grow); removeEventListener("pointerup", stop);
-        if (minutes !== (task.minutes ?? 60)) await host.backend.setDue(task, task.date, task.time, minutes).catch(() => {});
+        if (minutes !== (task.minutes ?? 60)) await setWhen(task, task.date, task.time, minutes).catch(() => {});
         await render(true);
       };
       addEventListener("pointermove", grow); addEventListener("pointerup", stop);
@@ -307,7 +407,7 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
       const time = target.minutes === null ? null : hhmm(target.minutes);
       if (target.day !== task.date || time !== task.time) {
         try {
-          await host.backend.setDue(task, target.day, time, time ? task.minutes : null);
+          await setWhen(task, target.day, time, time ? task.minutes : null);
         } catch { /* заметку поменяли снаружи — просто перечитаем */ }
       }
       await render(true);
@@ -316,6 +416,22 @@ export function mountCalendar(root: HTMLElement, host: CalendarHost) {
     addEventListener("pointerup", up);
   });
 
+  // Календари слева: клик — показать или скрыть (только вид), «задачи сюда», «новый календарь».
+  sidebar.addEventListener("click", (e) => {
+    if (!root.isConnected) return;
+    const el = e.target as HTMLElement;
+    const here = el.closest<HTMLElement>("[data-tasks-here]");
+    if (here) { pref("tasksCalendar", here.dataset.tasksHere!); void render(true); return; }
+    const row = el.closest<HTMLElement>("[data-calendar]");
+    if (row) {
+      const off = hidden(), id = row.dataset.calendar!;
+      if (!off.delete(id)) off.add(id);
+      pref("hiddenCalendars", JSON.stringify([...off]));
+      void render(true);
+      return;
+    }
+    if (el.closest("[data-cal='new-calendar']")) { adding = true; renderSidebar(); }
+  });
   root.tabIndex = -1;
   root.addEventListener("keydown", (e) => {
     if ((e.target as HTMLElement).closest("input")) return;

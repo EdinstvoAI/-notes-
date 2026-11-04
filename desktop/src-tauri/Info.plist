@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Дописывается Tauri в Info.plist бандла на маке. Тексты — как у Swift-версии (<notes>.xcodeproj). -->
+<plist version="1.0">
+<dict>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Задачи из заметок с датой появятся в Календаре и будут обновляться вместе с заметкой.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Чтобы надиктовывать: нажми горячую клавишу (по умолчанию ⌥ Пробел), скажи и нажми её ещё раз. Речь распознаётся прямо на этом Mac и никуда не отправляется.</string>
+</dict>
+</plist>

@@ -7,7 +7,7 @@ license.workspace = true
 
 [lib]
 name = "notes_desktop_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -36,3 +36,9 @@ windows = { version = "0.58", features = ["Foundation", "Security_Credentials_UI
 [target.'cfg(target_os = "macos")'.dependencies]
 # Системный Liquid Glass под окном (macOS 26+), как у Swift-версии.
 tauri-plugin-liquid-glass = "0.1"
+# Календарь Apple (EventKit), как `CalendarSync` на маке. Слово Макара — 04.11.2026.
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSDate", "NSError", "NSString", "NSPredicate"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSColor", "NSColorSpace"] }
+objc2-event-kit = { version = "0.3", features = ["EKEventStore", "EKEvent", "EKCalendar", "EKCalendarItem", "EKObject", "EKSource", "EKTypes", "EKError", "block2", "objc2-app-kit"] }
+block2 = "0.6"

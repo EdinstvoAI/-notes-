@@ -102,6 +102,52 @@ fn search(query: String, state: State<AppState>) -> Result<Vec<notes_core::Hit>,
     with_vault(&state, |v| Ok(v.search(&query, 20)))
 }
 
+// ——— Календарь Apple (EventKit) — `platform/calendar.rs`. На Windows отвечает «нет». ———
+fn links_file(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(app.path().app_config_dir().map_err(|e| e.to_string())?.join("calendar-links.json"))
+}
+
+#[tauri::command]
+fn cal_state() -> platform::calendar::State { platform::calendar::state() }
+
+#[tauri::command]
+async fn cal_request() -> bool { tauri::async_runtime::spawn_blocking(platform::calendar::request).await.unwrap_or(false) }
+
+#[tauri::command]
+fn cal_calendars() -> Vec<platform::calendar::CalendarInfo> { platform::calendar::calendars() }
+
+#[tauri::command]
+fn cal_events(start: f64, end: f64) -> Vec<platform::calendar::EventInfo> { platform::calendar::events(start, end) }
+
+#[tauri::command]
+fn cal_move(id: String, start: f64, end: f64) -> Result<(), String> { platform::calendar::move_event(&id, start, end) }
+
+#[tauri::command]
+fn cal_rename(id: String, title: String) -> Result<(), String> { platform::calendar::rename_event(&id, &title) }
+
+#[tauri::command]
+fn cal_remove(id: String) -> Result<(), String> { platform::calendar::remove_event(&id) }
+
+#[tauri::command]
+fn cal_create_calendar(title: String) -> Result<(), String> { platform::calendar::create_calendar(&title) }
+
+#[tauri::command]
+fn cal_rename_calendar(id: String, title: String) -> Result<(), String> { platform::calendar::rename_calendar(&id, &title) }
+
+/// Ключ задачи → id события: экран задач по ним показывает «в календаре».
+#[tauri::command]
+fn cal_links(app: tauri::AppHandle) -> Result<std::collections::BTreeMap<String, String>, String> {
+    Ok(platform::calendar::linked(&links_file(&app)?))
+}
+
+/// Тестовая папка не трогает настоящий календарь — как `CalendarSync.enabled` на маке (26.10.2026).
+#[tauri::command]
+fn cal_sync(tasks: Vec<notes_core::calplan::Wanted>, calendar: Option<String>, minutes: u32, app: tauri::AppHandle, state: State<AppState>) -> Result<usize, String> {
+    let test = with_vault(&state, |v| Ok(v.root().to_string_lossy().contains("test-vault")))?;
+    if test || std::env::var_os("NOTES_NO_CALENDAR").is_some() { return Ok(0); }
+    platform::calendar::sync(&tasks, calendar.as_deref(), minutes, &links_file(&app)?)
+}
+
 #[tauri::command]
 fn tasks(state: State<AppState>) -> Result<Vec<TaskRow>, String> {
     with_vault(&state, |v| Ok(v.tasks().into_iter().map(|(note, task)| TaskRow { note, task }).collect()))
@@ -891,6 +937,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             open_vault, create_vault, create_vault_at, set_app_icon, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
+            cal_state, cal_request, cal_calendars, cal_events, cal_move, cal_rename, cal_remove, cal_create_calendar, cal_rename_calendar, cal_links, cal_sync,
             create_folder, duplicate, move_into, copy_in, trash, untrash, reveal, open_default, absolute, pins, set_pins,
             templates, create_from_template, daily,
             set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, set_tray_icon, show_main, safe::safe_state, safe::safe_create, safe::safe_unlock, safe::safe_unlock_hello, safe::safe_lock, safe::safe_items, safe::safe_put, safe::safe_delete, safe::safe_import, safe::safe_codes, safe::safe_totp, safe::safe_generate, safe::safe_weak, safe::safe_copy, safe::screen_locked, mcp::mcp_info, mcp::mcp_clear_log, mcp::mcp_skills, mcp::mcp_install_skill, git_history, git_revert, git_restore, git_file_at, git_restore_file, selftest, selftest_slow, selftest_log, selftest_env, debug_section,

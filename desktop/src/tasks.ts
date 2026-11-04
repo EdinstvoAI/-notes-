@@ -4,12 +4,19 @@
 
 import type { Api, TaskRow } from "./api";
 import { icon, type Glyph } from "./icons";
+import { invoke } from "@tauri-apps/api/core";
+import { syncApple } from "./calendar";
+
+// На маке — Календарь Apple: фильтр «в календаре» по связям задача → событие (`cal_links`), как `TasksModel`.
+let apple: { supported: boolean; access: string } | null = null;
+let linked = new Set<string>();
 
 type Filter = "all" | "today" | "week" | "noDate" | "dated" | "done";
 const FILTERS: [Filter, string, Glyph][] = [
   ["all", "все задачи", "task"], ["today", "сегодня", "task"], ["week", "на неделе", "task"],
   ["noDate", "без даты", "task"], ["dated", "с датой", "calendar"], ["done", "готово", "taskDone"],
 ];
+const filters = () => FILTERS.map(([f, t, g]) => (f === "dated" && apple?.supported ? [f, "в календаре", g] : [f, t, g]) as [Filter, string, Glyph]);
 type Group = "сегодня" | "на неделе" | "позже" | "без даты" | "готово";
 const GROUPS: Group[] = ["сегодня", "на неделе", "позже", "без даты", "готово"];
 const INBOX = "Входящие.md";
@@ -47,7 +54,7 @@ function visible(all: TaskRow[]): TaskRow[] {
     case "today": return all.filter((t) => groupOf(t) === "сегодня");
     case "week": return all.filter((t) => groupOf(t) === "на неделе");
     case "noDate": return all.filter((t) => !t.done && !t.date);
-    case "dated": return all.filter((t) => !t.done && t.date);
+    case "dated": return apple?.supported ? all.filter((t) => linked.has(`${t.note}|${t.title}`)) : all.filter((t) => !t.done && t.date);
     case "done": return all.filter((t) => t.done);
   }
 }
@@ -67,7 +74,7 @@ export function mountTasks(root: HTMLElement, sidebar: HTMLElement, host: TasksH
 
   function renderSidebar() {
     const count = (f: Filter) => { const saved = filter; filter = f; const n = visible(all).length; filter = saved; return n; };
-    sidebar.innerHTML = FILTERS.map(([f, title, glyph]) => `
+    sidebar.innerHTML = filters().map(([f, title, glyph]) => `
       <button class="row${f === filter ? " selected" : ""}" style="padding-left:8px" data-filter="${f}">
         ${icon(glyph)}<span>${title}</span><small class="count">${count(f)}</small></button>`).join("");
     host.onFilter(`задачи / ${FILTERS.find(([f]) => f === filter)![1]}`);
@@ -89,7 +96,11 @@ export function mountTasks(root: HTMLElement, sidebar: HTMLElement, host: TasksH
     const list = visible(all);
     const open = all.filter((t) => !t.done).length;
     const dated = all.filter((t) => !t.done && t.date).length;
-    root.querySelector(".tasks-counts")!.textContent = `${open} открыто | ${dated} с датой`;
+    root.querySelector(".tasks-counts")!.textContent = apple?.supported
+      ? `${open} открыто | ${all.filter((t) => linked.has(`${t.note}|${t.title}`)).length} в календаре` : `${open} открыто | ${dated} с датой`;
+    root.querySelector(".cal-ask")?.remove();
+    if (apple?.supported && apple.access !== "full" && dated)
+      root.querySelector(".tasks-groups")!.insertAdjacentHTML("afterend", `<button class="quiet cal-ask">чтобы задачи с датой попадали в календарь</button>`);
     const body = root.querySelector(".tasks-groups")!;
     if (!list.length) {
       body.innerHTML = `<p class="tasks-empty">${all.length ? "здесь пусто" : "задач нет. добавьте выше или строкой «- [ ] дело» в заметке"}</p>`;
@@ -104,6 +115,9 @@ export function mountTasks(root: HTMLElement, sidebar: HTMLElement, host: TasksH
 
   async function reload() {
     all = await host.tasks();
+    apple = await invoke<{ supported: boolean; access: string }>("cal_state").catch(() => null);
+    if (apple?.access === "full") await syncApple(all);
+    linked = new Set(Object.keys(await invoke<Record<string, string>>("cal_links").catch(() => ({}))));
     renderSidebar();
     renderList();
   }
@@ -143,6 +157,7 @@ export function mountTasks(root: HTMLElement, sidebar: HTMLElement, host: TasksH
   });
 
   root.addEventListener("click", async (e) => {
+    if ((e.target as HTMLElement).closest(".cal-ask")) { await invoke("cal_request").catch(() => {}); return reload(); }
     const b = (e.target as HTMLElement).closest<HTMLElement>("button");
     if (!b) return;
     if (b.dataset.check) {
