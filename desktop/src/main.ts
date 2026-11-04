@@ -3,7 +3,7 @@
 
 import { api, type Api, type Folder, type Note } from "./api";
 import { os } from "./platform";
-import { blurIn } from "./motion";
+import { blurIn, leaving } from "./motion";
 export type { Note };
 import { icon, type Glyph } from "./icons";
 import { drawSlats } from "./slats";
@@ -98,6 +98,16 @@ function paintSlats() {
 // гибрид — значки и слово только у выбранного, потом одни значки. Ширину не считаем по формуле
 // (на маке так и вышла кривая капсула), а меряем: влезло ли то, что нарисовано.
 const topbar = $(".topbar");
+// Подпись, которая вернулась в шапку, проявляется из размытия (.transition(.blurReplace) у подписи на маке).
+const labelShown = new Map<string, boolean>();
+function revealLabels() {
+  nav.querySelectorAll<HTMLElement>(".section").forEach((b) => {
+    const label = b.querySelector("span")!;
+    const on = getComputedStyle(label).display !== "none";
+    if (on && labelShown.get(b.dataset.section!) === false) blurIn(label);
+    labelShown.set(b.dataset.section!, on);
+  });
+}
 const FITS = ["full", "nosync", "hybrid", "icons"] as const;
 function fitHeader() {
   for (const fit of FITS) {
@@ -105,6 +115,7 @@ function fitHeader() {
     if (topbar.scrollWidth <= topbar.clientWidth) break;
   }
   movePill();
+  revealLabels();
 }
 new ResizeObserver(() => { paintSlats(); fitHeader(); }).observe(app);
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -127,6 +138,7 @@ function renderNav() {
     if (lens) nav.prepend(lens);
   }
   nav.querySelectorAll<HTMLElement>(".section").forEach((b) => b.classList.toggle("active", b.dataset.section === state.section));
+  revealLabels();
 }
 
 // Наведение — одна плашка на группу, переезжает между кнопками (matchedGeometryEffect «hover» на маке), а в
@@ -515,8 +527,10 @@ app.addEventListener("click", async (e) => {
   if (el.classList.contains("search")) { openSearch(); return; }
   if (el.dataset.section) {
     const changed = state.section !== el.dataset.section;
+    const out = changed ? leaving(sidebar) : null;
     state.section = el.dataset.section as Section;
     render();
+    out?.(sidebar.parentElement!);
     // Панель слева тоже уходит в размытие и проявляется новой, вместе с разделом (SectionSidebar .blurReplace).
     if (changed) blurIn(sidebar);
   } else if (el.dataset.folder !== undefined) {
@@ -526,13 +540,20 @@ app.addEventListener("click", async (e) => {
       const kids = [...sidebar.querySelectorAll<HTMLElement>(".fold")].find((d) => d.dataset.of === path);
       state.expanded.delete(path);
       state.selection = { kind: "folder", path };
-      if (kids) { kids.classList.add("folding"); setTimeout(render, 300); } else render();
+      if (kids) {
+        kids.style.height = `${kids.offsetHeight}px`;
+        void kids.offsetHeight;
+        kids.classList.add("folding");
+        setTimeout(render, 300);
+      } else render();
       return;
     }
     if (!state.expanded.has(path)) unfolding = path;
     state.expanded.add(path);
     state.selection = { kind: "folder", path };
     render();
+    const opened = sidebar.querySelector<HTMLElement>(".fold.unfold");
+    opened?.style.setProperty("--h", `${opened.scrollHeight}px`);
     unfolding = null;
   } else if (el.dataset.file) {
     state.selection = { kind: "file", path: el.dataset.file };

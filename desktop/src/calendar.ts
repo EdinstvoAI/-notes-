@@ -5,6 +5,7 @@
 // Клик по пустому месту — новая задача на это время (дописывается во «Входящие.md», как на маке),
 // событие тащится мышью на другой день и время (шаг 15 минут), клик по событию — открыть заметку.
 
+import { blurIn, leaving } from "./motion";
 import type { Api, TaskRow } from "./api";
 import { icon } from "./icons";
 import { os } from "./platform";
@@ -237,6 +238,7 @@ export function mountCalendar(root: HTMLElement, sidebar: HTMLElement, host: Cal
     }
   }
 
+  let shownPlace = "";
   async function render(keepScroll = false) {
     await load();
     const scroll = root.querySelector<HTMLElement>(".cal-scroll")?.scrollTop;
@@ -244,12 +246,18 @@ export function mountCalendar(root: HTMLElement, sidebar: HTMLElement, host: Cal
     const body = apple?.supported && apple.access !== "full"
       ? `<button class="cal-grant" data-cal="grant">дать доступ</button>`
       : view.mode === "month" ? monthHTML() : gridHTML();
+    // Неделя, день, месяц и листание — мягким размытием, как разделы (.id(…).transition(.blurReplace) на маке).
+    const place = `${view.mode}-${view.anchor.toDateString()}`;
+    const oldBody = root.querySelector<HTMLElement>(".cal-body");
+    const out = oldBody && place !== shownPlace ? leaving(oldBody) : null;
+    shownPlace = place;
     root.innerHTML = `<div class="cal">
       <header class="cal-head"><div><h1>${title()}</h1><p>${sub}</p></div>${controls()}</header>
       <div class="cal-body">${body}</div></div>`;
     renderSidebar();
     const sc = root.querySelector<HTMLElement>(".cal-scroll");
     if (sc) sc.scrollTop = keepScroll && scroll !== undefined ? scroll : 8 * HOUR;
+    if (out) { out(root.querySelector<HTMLElement>(".cal")!); blurIn(root.querySelector<HTMLElement>(".cal-body")!); }
   }
 
   // Новая задача: поле прямо у выбранного времени, Enter — во «Входящие.md».

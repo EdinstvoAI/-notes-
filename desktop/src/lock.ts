@@ -58,7 +58,7 @@ export function showUnlock(state: LockState): Promise<void> {
       await lockApi.seen();
       el.classList.add("leaving");
       document.getElementById("app")!.classList.remove("locked");
-      setTimeout(() => el.remove(), 450);
+      setTimeout(() => el.remove(), 600);
       resolve();
     };
 
@@ -143,7 +143,7 @@ export function choosePin(): Promise<boolean> {
     const close = (saved: boolean) => {
       document.removeEventListener("keydown", onKey, true);
       el.classList.remove("shown");
-      setTimeout(() => el.remove(), 300);
+      setTimeout(() => el.remove(), 500);
       resolve(saved);
     };
     const onKey = async (e: KeyboardEvent) => {

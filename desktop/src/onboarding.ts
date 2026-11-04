@@ -137,11 +137,25 @@ export async function runOnboarding(backend: Api): Promise<Folder> {
         } else if (to === "pin") {
           if (await choosePin()) step = "done";
         } else if (to === "finish") {
-          el.classList.add("leaving"); head.classList.add("leaving");
-          document.getElementById("app")!.classList.remove("locked");
+          // Финал как phase .finished: лист вниз, планки на всё окно, логотип вверх; через 0,7 с проявляется
+          // «все готово», а прокрутка вниз или клик открывает заметки (ScrollDownCatcher, наплыв 0,6 с).
           removeEventListener("resize", paint);
-          setTimeout(() => { el.remove(); head.remove(); void onboardingWindow(false); }, 450);
-          resolve(tree!);
+          drawSlats(head.querySelector("canvas")!, innerWidth, innerHeight, dark(), 20);
+          el.classList.add("finished"); head.classList.add("finished");
+          const finale = document.createElement("div");
+          finale.className = "onboarding-finale";
+          finale.innerHTML = `<b>все готово</b><small>листай вниз</small>`;
+          document.body.append(finale);
+          setTimeout(() => finale.classList.add("shown"), 700);
+          const open = (e: Event) => {
+            if (e instanceof WheelEvent && e.deltaY <= 0) return;
+            removeEventListener("wheel", open); removeEventListener("click", open, true);
+            el.classList.add("leaving"); head.classList.add("leaving"); finale.classList.add("leaving");
+            document.getElementById("app")!.classList.remove("locked");
+            setTimeout(() => { el.remove(); head.remove(); finale.remove(); void onboardingWindow(false); }, 600);
+            resolve(tree!);
+          };
+          setTimeout(() => { addEventListener("wheel", open); addEventListener("click", open, true); }, 100);
           return;
         } else step = to as Step;
       } catch (e) {

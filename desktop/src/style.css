@@ -17,7 +17,7 @@
   --line: rgb(227, 227, 232);
   --primary: var(--coral); --on-primary: #fff;   /* Theme.primary: коралл днём, белый ночью */
   --track: -0.07em;       /* трекинг −7 % из макета */
-  --smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --smooth: cubic-bezier(0.3, 0.6, 0.25, 1);
   color-scheme: light dark;
 }
 
@@ -200,8 +200,8 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .search-panel { width: 720px; max-width: calc(100vw - 40px); align-self: flex-start; border-radius: 28px; overflow: hidden;
   background: rgba(var(--bg), 0.78); -webkit-backdrop-filter: blur(30px) saturate(1.5); backdrop-filter: blur(30px) saturate(1.5);
   box-shadow: inset 0 0 0 1px var(--edge), 0 16px 80px rgba(0, 0, 0, 0.18);
-  transform: translateY(10px) scale(.98); transition: transform .3s var(--smooth); }
-.search-overlay.shown .search-panel { transform: none; }
+  transform: scale(.98); filter: blur(12px); transition: transform .3s var(--smooth), filter .3s var(--smooth); }
+.search-overlay.shown .search-panel { transform: none; filter: none; }
 .search-field { height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 22px; border-bottom: 1px solid var(--line); }
 .search-field .dot { color: var(--ink); }
 .search-field input { flex: 1; border: 0; outline: 0; background: none; color: var(--ink); font: 20px "Martian Heading";
@@ -248,7 +248,7 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 /* ——— календарь (CalendarScreen на маке) ——— */
 .cal-root { height: 100%; outline: 0; position: relative; }
 .page:has(.cal-root) { overflow: hidden; padding-bottom: 0; }
-.cal { height: 100%; display: flex; flex-direction: column; padding: 36px 15px 0 24px; }
+.cal { position: relative; height: 100%; display: flex; flex-direction: column; padding: 36px 15px 0 24px; }
 .cal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-right: 48px; }
 .cal-head h1 { font: 26px "Martian Heading"; letter-spacing: var(--track); font-weight: normal; }
 .cal-head p { margin-top: 6px; color: var(--gray); }
@@ -330,14 +330,14 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .tasks-groups h2 { margin-top: 26px; font-size: 15px; font-weight: normal; }
 .tasks-empty { margin-top: 46px; color: var(--gray); }
 .task-row { height: 35px; margin-top: 6px; display: flex; align-items: center; gap: 10px; padding: 0 4px; border-bottom: 1px solid var(--line);
-  transition: opacity .45s var(--smooth), transform .45s var(--smooth); }
+  transition: opacity .45s var(--smooth), transform .45s var(--smooth), height .45s var(--smooth), margin .45s var(--smooth); }
 .task-row .check .dot { color: var(--ink); }
 .task-row.done .check .dot, .task-row.checking .check .dot { color: rgb(52, 199, 89); }
 .task-row .urgent { font: 13px "Martian Heading"; color: var(--coral); }
-.task-title { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+.task-title { transition: color .25s var(--smooth); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
 .task-row.done .task-title, .task-row.checking .task-title { color: rgba(var(--fg), 0.4); }
 .task-row.checking:not(.done) .task-title { text-decoration: line-through; }
-.task-row.leaving { opacity: 0; transform: scale(.98); transform-origin: left; }
+.task-row.leaving { opacity: 0; transform: scale(.98); transform-origin: left; height: 0; margin-top: 0; overflow: hidden; border-bottom-color: transparent; }
 .task-note { font-size: 11px; color: var(--gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
 .task-when { font-size: 11px; color: var(--gray); white-space: nowrap; }
 
@@ -373,7 +373,7 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 #app.locked > *:not(.slats) { filter: blur(18px); pointer-events: none; }
 .unlock { position: fixed; inset: 0; z-index: 40; display: flex; justify-content: center; padding-top: 92px;
   opacity: 0; transition: opacity .45s var(--smooth); }
-.unlock.shown { opacity: 1; } .unlock.leaving { opacity: 0; }
+.unlock.shown { opacity: 1; } .unlock.leaving { opacity: 0; transition-duration: .6s; }
 .unlock-sheet { position: absolute; left: 17px; right: 17px; top: 92px; bottom: 0; border-radius: 18px 18px 0 0; text-align: center;
   background: rgba(var(--sheet), 0.9); -webkit-backdrop-filter: blur(40px) saturate(1.4); backdrop-filter: blur(40px) saturate(1.4);
   box-shadow: inset 0 0 0 1px var(--edge); display: flex; flex-direction: column; align-items: center; }
@@ -404,8 +404,11 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 @keyframes shake { 0%, 100% { transform: none; } 17% { transform: translateX(8px); } 33% { transform: translateX(-8px); }
   50% { transform: translateX(8px); } 67% { transform: translateX(-8px); } 83% { transform: translateX(4px); } }
 .pin-overlay { position: fixed; inset: 0; z-index: 40; background: rgba(var(--bg), 0.45); display: flex; justify-content: center;
-  align-items: center; opacity: 0; transition: opacity .3s var(--smooth); }
+  align-items: center; opacity: 0; transition: opacity .5s var(--smooth);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .pin-overlay.shown { opacity: 1; }
+.pin-overlay .pin-card { filter: blur(12px); transition: filter .5s var(--smooth); }
+.pin-overlay.shown .pin-card { filter: none; }
 .pin-card { width: 300px; height: 180px; border-radius: 30px; text-align: center; color: #000;
   background: rgba(255, 255, 255, 0.92); box-shadow: inset 0 0 0 1px #fff, 0 12px 40px rgba(0, 0, 0, 0.12);
   display: flex; flex-direction: column; align-items: center; padding-top: 18px; }
@@ -480,7 +483,7 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .preview-body pre { white-space: pre-wrap; user-select: text; font: 13px/1.5 ui-monospace, monospace; }
 
 /* Плавная смена темы (ThemeCrossfade на маке). */
-.theming, .theming * { transition: background-color .5s ease, color .5s ease, box-shadow .5s ease, border-color .5s ease !important; }
+.theming, .theming * { transition: background-color .5s ease-in-out, color .5s ease-in-out, box-shadow .5s ease-in-out, border-color .5s ease-in-out !important; }
 
 .cal-resize { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
 .cal-card-actions { display: flex; gap: 6px; margin-top: 10px; }
@@ -507,8 +510,20 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .loading-scene.logo-up .loading-logo { top: 27px; font-size: 15px; }
 .loading-scene.gone { opacity: 0; }
 .onboarding .unlock-sheet { transition: transform .7s var(--smooth); }
+/* Финал (phase .finished, 1,4 с): лист уезжает вниз, планки встают на всё окно, логотип улетает вверх и гаснет. */
+.onboarding.finished::before { transform: translateY(100vh); transition: transform 1.4s var(--smooth); }
+.onboarding.finished .unlock-sheet { transform: translateY(100vh); transition-duration: 1.4s; }
+.onboarding-head { overflow: hidden; }
+.onboarding-head.finished { height: 100vh; transition: height 1.4s var(--smooth), opacity .6s var(--smooth); }
+.onboarding-head.finished b { top: -27px; opacity: 0; filter: blur(10px); transition: top 1.4s var(--smooth), opacity 1.4s var(--smooth), filter 1.4s var(--smooth); }
+.onboarding-finale { position: fixed; left: 0; right: 0; top: 202px; z-index: 41; text-align: center; cursor: default; opacity: 0; filter: blur(14px); transform: scale(1.04);
+  transition: opacity 1.6s var(--smooth), filter 1.6s var(--smooth), transform 1.6s var(--smooth); }
+.onboarding-finale.shown { opacity: 1; filter: none; transform: none; }
+.onboarding-finale.leaving { opacity: 0; transition: opacity .6s var(--smooth); }
+.onboarding-finale b { display: block; font: 30px "Martian Logo"; font-weight: normal; letter-spacing: -0.05em; color: rgb(var(--fg)); }
+.onboarding-finale small { display: block; margin-top: 1px; font-size: 11px; letter-spacing: -0.07em; color: rgba(var(--fg), 0.3); }
 .onboarding:not(.shown) .unlock-sheet { transform: translateY(386px); }
-.onboarding .unlock-sheet > * { transition: opacity .45s var(--smooth), filter .45s var(--smooth); }
+.onboarding .unlock-sheet > * { transition: opacity .8s var(--smooth), filter .8s var(--smooth); }
 .onboarding.step-swap .unlock-sheet > * { opacity: 0; filter: blur(12px); transition: none; }
 
 /* ——— синхронизация (SyncScreen на маке): линия метро в панели, версия, доска графа ——— */
@@ -610,9 +625,14 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .section.active { background: none; }
 @keyframes blur-in { from { opacity: 0; filter: blur(12px); } to { opacity: 1; filter: none; } }
 .blur-in { animation: blur-in .45s var(--smooth); }
-@keyframes unfold { from { opacity: 0; transform: translateY(-8px); } }
-.unfold { animation: unfold .3s var(--smooth); }
-.fold.folding, .unfold.folding { opacity: 0; transform: translateY(-8px); transition: opacity .3s var(--smooth), transform .3s var(--smooth); }
+/* Папка: строки проявляются, а высота тянет за собой всё, что ниже, — как перестановка списка на маке. */
+@keyframes unfold { from { opacity: 0; height: 0; } to { opacity: 1; height: var(--h); } }
+.unfold { overflow: hidden; animation: unfold .3s var(--smooth); }
+.fold.folding, .unfold.folding { overflow: hidden; opacity: 0; height: 0 !important; animation: none; transition: opacity .3s var(--smooth), height .3s var(--smooth); }
+/* Уходящая копия при смене (motion.ts → leaving) — .blurReplace в обратную сторону. */
+@keyframes blur-out { to { opacity: 0; filter: blur(12px); } }
+.blur-out { position: absolute; margin: 0; pointer-events: none; animation: blur-out .45s var(--smooth) forwards; }
+.section span.blur-in { animation-duration: .35s; }
 /* Текст при прокрутке не обрезается по линейке, а растворяется под капсулой пути: 51 пт пусто, 28 пт перехода
    (маска SectionContent на маке, 03.11.2026). */
 .page { -webkit-mask-image: linear-gradient(transparent 0, transparent 51px, #000 79px);
@@ -714,3 +734,8 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .cal-list:hover .cal-here { display: inline; } .cal-list .count { font-size: 10px; }
 .cal-new-name { width: 100%; height: 28px; padding: 0 8px; border: 0; outline: 0; border-radius: 8px; background: none; color: var(--ink);
   box-shadow: inset 0 0 0 1px rgba(229, 77, 51, 0.5); font: 13px "Martian"; letter-spacing: var(--track); }
+
+/* SwiftUI .smooth(duration: d) — пружина без отскока: x(t) = 1 − (1 + ωt)·e^(−ωt), ω = 2π/d, нормировано к 1 в конце. */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root { --smooth: linear(0, .041 5%, .133 10%, .246 15%, .363 20%, .472 25%, .57 30%, .654 35%, .725 40%, .832 50%, .902 60%, .946 70%, .974 80%, .99 90%, 1); }
+}
