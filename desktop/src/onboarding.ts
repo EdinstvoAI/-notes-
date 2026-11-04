@@ -1,5 +1,5 @@
 // Первый вход — порт `OnboardingSteps.swift` (docs/ONBOARDING.md): привет → git в папке → github? →
-// код → готово → модели → пару моментиков → пароль → всё готово. Тот же лист, что у входа по пинкоду:
+// код → готово → модели → пару моментиков → пароль → финал. Тот же лист, что у входа по пинкоду:
 // заголовок, серая подпись, коралловая капсула и тихая ссылка под ней. Пропуски — как на маке.
 
 import { invoke } from "@tauri-apps/api/core";
@@ -45,12 +45,16 @@ function loadingScene(): Promise<void> {
     };
     requestAnimationFrame(frame);
     setTimeout(() => box.classList.add("logo-in"), 400);
-    setTimeout(() => box.classList.add("logo-up"), 2400);
-    setTimeout(() => { box.classList.add("gone"); setTimeout(() => box.remove(), 600); done(); }, 2900);
+    // Логотип едет в шапку и лист поднимается вместе, 1,3 с (phase .steps); сцена гаснет уже под листом.
+    setTimeout(() => {
+      box.classList.add("logo-up");
+      done();
+      setTimeout(() => { box.classList.add("gone"); setTimeout(() => box.remove(), 600); }, 1300);
+    }, 2400);
   });
 }
 
-type Step = "welcome" | "git" | "github" | "code" | "githubDone" | "models" | "permissions" | "password" | "done";
+type Step = "welcome" | "git" | "github" | "code" | "githubDone" | "models" | "permissions" | "password";
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 export async function runOnboarding(backend: Api): Promise<Folder> {
@@ -58,7 +62,7 @@ export async function runOnboarding(backend: Api): Promise<Folder> {
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) await loadingScene();
   return new Promise((resolve) => {
     const el = document.createElement("div");
-    el.className = "unlock onboarding";
+    el.className = "unlock onboarding lifting";
     // Шапка из планок высотой 66 и логотип в ней; лист наезжает на неё с 54.
     const head = document.createElement("div");
     head.className = "onboarding-head";
@@ -83,8 +87,15 @@ export async function runOnboarding(backend: Api): Promise<Folder> {
     let first = true;
     const render = () => {
       // Смена шага — старое уходит в размытие, новое проявляется (как шаги на маке).
+      const old = first ? [] : [...el.querySelectorAll<HTMLElement>(".unlock-sheet > *")].map((n) => n.cloneNode(true) as HTMLElement);
       if (!first) { el.classList.add("step-swap"); setTimeout(() => el.classList.remove("step-swap"), 30); }
       first = false;
+      // Копии старого шага — после обработчиков шага, чтобы те нашли только новые поля.
+      queueMicrotask(() => old.forEach((n) => {
+        n.classList.add("step-out");
+        el.querySelector(".unlock-sheet")?.append(n);
+        setTimeout(() => n.remove(), 800);
+      }));
       el.innerHTML = {
         welcome: () => view("привет!", "выбери папку, куда сохранять заметки", ["создать папку", "create"], ["выбрать папку", "pick"]),
         git: () => view("git в папке", "папка станет git-репозиторием: любую правку можно откатить", ["инициализировать", "git"], ["пропустить, настрою потом", "models"]),
@@ -93,8 +104,7 @@ export async function runOnboarding(backend: Api): Promise<Folder> {
         githubDone: () => view("готово!", `создали приватный репозиторий ${esc(repo)}. история отправляется туда сама`, ["дальше", "models"]),
         models: () => view("модели", "надиктовка gigaam (русский, 176 мб) работает без интернета, скачивается один раз", ["скачать и дальше", "download"], ["позже, в настройках", "permissions"], "", 374),
         permissions: () => view("пару моментиков", os("микрофон: параметры windows → конфиденциальность → микрофон. надиктовка — ctrl + alt + space", "микрофон: системные настройки → конфиденциальность → микрофон. надиктовка — ⌥ space"), ["дальше", "password"], undefined, "", 374),
-        password: () => view("установим пароль?", "4 цифры при входе. заметки не шифруются — их откроет любой редактор", ["задать пинкод", "pin"], ["без пароля", "done"], "", 359),
-        done: () => view("всё готово", "заметки — обычные файлы .md в твоей папке", ["открыть заметки", "finish"]),
+        password: () => view("установим пароль?", "4 цифры при входе. заметки не шифруются — их откроет любой редактор", ["задать пинкод", "pin"], ["без пароля", "finish"], "", 359),
       }[step]();
     };
 
@@ -135,7 +145,7 @@ export async function runOnboarding(backend: Api): Promise<Folder> {
           // Модель качается в фоне — не держим человека на экране, как шаг 7 на маке не ждёт конца.
           void invoke("model_download").catch(() => {});
         } else if (to === "pin") {
-          if (await choosePin()) step = "done";
+          if (await choosePin()) return go("finish");
         } else if (to === "finish") {
           // Финал как phase .finished: лист вниз, планки на всё окно, логотип вверх; через 0,7 с проявляется
           // «все готово», а прокрутка вниз или клик открывает заметки (ScrollDownCatcher, наплыв 0,6 с).
@@ -169,5 +179,8 @@ export async function runOnboarding(backend: Api): Promise<Folder> {
     });
     render();
     requestAnimationFrame(() => el.classList.add("shown"));
+    // Текст начинает проявляться, пока лист ещё едет.
+    setTimeout(() => el.classList.add("content"), 350);
+    setTimeout(() => el.classList.remove("lifting"), 2000);
   });
 }

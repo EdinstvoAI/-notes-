@@ -88,7 +88,18 @@ const sidebar = $(".sidebar");
 const actions = $(".actions");
 let page = $(".page");
 
+let slatsDark: boolean | null = null;
 function paintSlats() {
+  // Смена темы: старые планки гаснут поверх новых за 0,5 с (ThemeCrossfade), а не меняются рывком.
+  if (slatsDark !== null && slatsDark !== isDark() && slats.width) {
+    const ghost = document.createElement("canvas");
+    ghost.width = slats.width; ghost.height = slats.height;
+    ghost.className = "slats slats-out";
+    ghost.getContext("2d")!.drawImage(slats, 0, 0);
+    slats.after(ghost);
+    setTimeout(() => ghost.remove(), 500);
+  }
+  slatsDark = isDark();
   drawSlats(slats, app.clientWidth, 92, isDark());
   // Капсулы шапки — жидкое стекло поверх только что нарисованных планок (glass.ts).
   requestAnimationFrame(() => paintGlass([...app.querySelectorAll<HTMLElement>(".topbar .group")], slats, isDark()));
@@ -100,22 +111,33 @@ function paintSlats() {
 const topbar = $(".topbar");
 // Подпись, которая вернулась в шапку, проявляется из размытия (.transition(.blurReplace) у подписи на маке).
 const labelShown = new Map<string, boolean>();
-function revealLabels() {
+function revealLabels(left = new Map<string, number>()) {
   nav.querySelectorAll<HTMLElement>(".section").forEach((b) => {
     const label = b.querySelector("span")!;
     const on = getComputedStyle(label).display !== "none";
     if (on && labelShown.get(b.dataset.section!) === false) blurIn(label);
+    // Ушедшая подпись — копией в размытие, на том месте, где стояла.
+    if (!on && labelShown.get(b.dataset.section!) && left.has(b.dataset.section!)) {
+      const ghost = document.createElement("i");
+      ghost.className = "label-out";
+      ghost.textContent = label.textContent;
+      ghost.style.left = `${left.get(b.dataset.section!)}px`;
+      b.append(ghost);
+      setTimeout(() => ghost.remove(), 350);
+    }
     labelShown.set(b.dataset.section!, on);
   });
 }
 const FITS = ["full", "nosync", "hybrid", "icons"] as const;
 function fitHeader() {
+  const left = new Map<string, number>();
+  nav.querySelectorAll<HTMLElement>(".section").forEach((b) => { const l = b.querySelector("span")!; if (l.offsetWidth) left.set(b.dataset.section!, l.offsetLeft); });
   for (const fit of FITS) {
     topbar.dataset.fit = fit;
     if (topbar.scrollWidth <= topbar.clientWidth) break;
   }
   movePill();
-  revealLabels();
+  revealLabels(left);
 }
 new ResizeObserver(() => { paintSlats(); fitHeader(); }).observe(app);
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {

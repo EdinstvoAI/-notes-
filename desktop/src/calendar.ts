@@ -121,7 +121,7 @@ export function mountCalendar(root: HTMLElement, sidebar: HTMLElement, host: Cal
       <button class="icon-button" data-cal="next" title="вперёд">${icon("chevronRight")}</button>
       <button class="icon-button" data-cal="new" title="новая задача">${icon("plus")}</button>
       ${apple?.supported ? "" : `<button class="cal-today" data-cal="ics" title="${os("задачи в Календарь Windows или Outlook: откройте файл .ics", "задачи в Календарь: откройте файл .ics")}">.ics</button>`}
-      <div class="cal-modes">${MODES.map(([m, t]) => `<button class="cal-mode${m === view.mode ? " on" : ""}" data-mode="${m}">${t}</button>`).join("")}</div>
+      <div class="cal-modes"><i class="cal-mode-pill"></i>${MODES.map(([m, t]) => `<button class="cal-mode${m === view.mode ? " on" : ""}" data-mode="${m}">${t}</button>`).join("")}</div>
     </div>`;
 
   function gridHTML(): string {
@@ -251,10 +251,19 @@ export function mountCalendar(root: HTMLElement, sidebar: HTMLElement, host: Cal
     const oldBody = root.querySelector<HTMLElement>(".cal-body");
     const out = oldBody && place !== shownPlace ? leaving(oldBody) : null;
     shownPlace = place;
+    const was = root.querySelector<HTMLElement>(".cal-mode.on");
+    const from = was ? [was.offsetLeft, was.offsetWidth] : null;
     root.innerHTML = `<div class="cal">
       <header class="cal-head"><div><h1>${title()}</h1><p>${sub}</p></div>${controls()}</header>
       <div class="cal-body">${body}</div></div>`;
     renderSidebar();
+    // Плашка режима едет от старого к новому: кнопки перерисованы, а она — нет.
+    const on = root.querySelector<HTMLElement>(".cal-mode.on"), pill = root.querySelector<HTMLElement>(".cal-mode-pill");
+    if (on && pill) {
+      const put = (x: number, w: number) => { pill.style.transform = `translateX(${x}px)`; pill.style.width = `${w}px`; };
+      if (from) { put(from[0], from[1]); void pill.offsetWidth; }
+      put(on.offsetLeft, on.offsetWidth);
+    }
     const sc = root.querySelector<HTMLElement>(".cal-scroll");
     if (sc) sc.scrollTop = keepScroll && scroll !== undefined ? scroll : 8 * HOUR;
     if (out) { out(root.querySelector<HTMLElement>(".cal")!); blurIn(root.querySelector<HTMLElement>(".cal-body")!); }
