@@ -91,3 +91,11 @@
 - `<notes>/AppIcon.icon` — иконка приложения (Icon Composer): слой планок и слой надписи, светлая и тёмная.
 - `notes.entitlements` — права, которых нет в настройках сборки (bookmarks).
 - `<notes>.xcodeproj` — проект Xcode, пакеты подключены локально.
+
+## Общая версия Tauri (`desktop/`)
+
+- `desktop/src/glass.ts` — жизненный цикл материалов Edinstvo Glass всех окон.
+- `desktop/core/src/sections.rs` — разделы «Кратко» и «Задачи», сохраняющие остальной Markdown.
+- `desktop/src-tauri/native/MacBridge.swift` — системные API Apple за C ABI.
+- `desktop/src-tauri/src/platform/macos.rs` — безопасная граница Rust/Swift и освобождение ответа.
+- `desktop/src-tauri/src/intelligence.rs` — команды Foundation Models с проверкой параллельной правки.
