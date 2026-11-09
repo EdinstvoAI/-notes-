@@ -3,11 +3,13 @@
 
 import { api, type Api, type Folder, type Note } from "./api";
 import { os } from "./platform";
+import { invoke } from "@tauri-apps/api/core";
+import { lockApi, showUnlock } from "./lock";
 import { blurIn, leaving } from "./motion";
 export type { Note };
 import { icon, type Glyph } from "./icons";
 import { drawSlats } from "./slats";
-import { paintGlass } from "./glass";
+import { startGlass, refreshGlass } from "./glass";
 import { bindMarkdown, editorHTML } from "./editor";
 import { closeSearch, openSearch, searchShown } from "./search";
 import { showMenu, type MenuItem } from "./menu";
@@ -80,6 +82,8 @@ app.innerHTML = `
     <div class="page"></div>
   </main>`;
 
+startGlass();
+
 const $ = <T extends HTMLElement>(s: string) => app.querySelector<T>(s)!;
 const slats = $<HTMLCanvasElement>(".slats");
 const nav = $(".sections");
@@ -102,7 +106,7 @@ function paintSlats() {
   slatsDark = isDark();
   drawSlats(slats, app.clientWidth, 92, isDark());
   // Капсулы шапки — жидкое стекло поверх только что нарисованных планок (glass.ts).
-  requestAnimationFrame(() => paintGlass([...app.querySelectorAll<HTMLElement>(".topbar .group")], slats, isDark()));
+  requestAnimationFrame(refreshGlass);
 }
 
 // Шапка сжимается по очереди, как на маке: сначала текст синхронизации (значок остаётся), потом
@@ -152,12 +156,10 @@ function renderNav() {
   // (glass.ts живёт внутри капсулы) не выкидывается — из-за innerHTML капсула пропадала.
   const built = nav.querySelectorAll(".section").length === SECTIONS.length;
   if (!built) {
-    const lens = nav.querySelector(".glass-lens");
     nav.innerHTML = `<span class="nav-hover"></span><span class="nav-pill"></span>` + SECTIONS.map((s) => `
     <button class="section" data-section="${s.id}">
       ${icon(s.glyph)}<span>${s.title}</span>
     </button>`).join("");
-    if (lens) nav.prepend(lens);
   }
   nav.querySelectorAll<HTMLElement>(".section").forEach((b) => b.classList.toggle("active", b.dataset.section === state.section));
   revealLabels();
@@ -336,12 +338,14 @@ function noteHTML(path: string): string {
 }
 
 
+let intelligenceReady = false;
 function renderActions() {
   const buttons: [Glyph, string, string][] =
     state.section === "notes" ? [["microphone", "надиктовать", "dictate"], ["file", "новая заметка из шаблона", "templates"], ["newNote", "новая заметка", "new-note"]]
     : state.section === "tasks" ? [["microphone", "надиктовать", "dictate"], ["plus", "новая задача", "new-task"]]
     : state.section === "video" ? [["plus", "добавить видео или аудио", "add-video"]]
     : state.section === "calendar" ? [["microphone", "надиктовать", "dictate"]] : [];
+  if (state.section === "notes" && state.selection.kind === "note" && prefs.intelligence && intelligenceReady) buttons.unshift(["spark", "кратко", "summary"]);
   actions.innerHTML = buttons.map(([g, help, act]) =>
     `<button class="icon-button" title="${help}" data-act="${act}">${icon(g)}</button>`).join("");
 }
@@ -591,6 +595,21 @@ app.addEventListener("click", async (e) => {
     render();
   } else if (el.dataset.act === "add-video") {
     page.querySelector<HTMLElement>("[data-pick]")?.click();
+  } else if (el.dataset.act === "summary" && state.selection.kind === "note") {
+    el.setAttribute("disabled", "");
+    const path = state.selection.path;
+    const before = state.text;
+    try {
+      clearTimeout(saveTimer); saveTimer = 0;
+      await backend.write(path, before);
+      const { invoke } = await import("@tauri-apps/api/core");
+      const result = await invoke<string>("intelligence_apply", { path, expected: before, mode: "summary" });
+      undoable("кратко", () => backend.write(path, before));
+      if (state.selection.kind === "note" && state.selection.path === path && state.text === before) {
+        state.text = result; lastKey = ""; render();
+      }
+    } catch (error) { toast(String(error)); }
+    finally { el.removeAttribute("disabled"); }
   } else if (el.dataset.act === "dictate") {
     if (backend.inTauri) await (await import("@tauri-apps/api/core")).invoke("dictation_toggle");
   } else if (el.dataset.act === "new-task") {
@@ -880,15 +899,37 @@ export const shell = { get backend() { return backend; }, get state() { return s
   const os = await backend.os();
   document.body.classList.add(backend.inTauri ? `tauri-${os}` : "browser");
   applyPrefs(await backend.prefs());
+  if (backend.inTauri) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const status = await invoke<{supported: boolean; reason: string | null}>("intelligence_state");
+    intelligenceReady = status.supported && !status.reason;
+  }
   // Пинкод — до того, как показать заметки (как на маке: экран входа раньше главного).
   if (backend.inTauri) {
-    const { lockApi, showUnlock } = await import("./lock");
     const lock = await lockApi.state();
     if (lock.needs_unlock) await showUnlock(lock);
     else if (lock.has_pin) await lockApi.seen();
     // Свернули надолго — при возврате спросить снова (15 минут, как на маке).
     let inactiveSince: number | null = null;
-    addEventListener("blur", () => { inactiveSince = Math.floor(Date.now() / 1000); void lockApi.seen(); });
+    let lastTick = Date.now();
+    let checking = false;
+    setInterval(async () => {
+      const now = Date.now(), slept = now - lastTick > 15000;
+      lastTick = now;
+      if (checking || document.querySelector(".unlock")) return;
+      checking = true;
+      try {
+        const locked = await invoke<boolean>("screen_locked");
+        if (locked || slept) {
+          const current = await lockApi.state();
+          if (current.has_pin && !document.querySelector(".unlock")) {
+            await lockApi.force();
+            await showUnlock(current, !locked);
+          }
+        }
+      } finally { checking = false; }
+    }, 1000);
+    addEventListener("blur", () => { inactiveSince = Math.floor(Date.now() / 1000); if (!document.querySelector(".unlock")) void lockApi.seen(); });
     addEventListener("focus", async () => {
       if (inactiveSince === null || document.querySelector(".unlock")) return;
       const since = inactiveSince;
@@ -911,7 +952,7 @@ export const shell = { get backend() { return backend; }, get state() { return s
     const { listen } = await import("@tauri-apps/api/event");
     void listen<string[]>("vault-changed", async (e) => {
       await reload();
-      const open = state.selection.kind === "note" ? state.selection.path : null;
+      const open = state.section === "notes" && state.selection.kind === "note" ? state.selection.path : null;
       if (open && e.payload.includes(open) && !saveTimer) {
         const fresh = await backend.read(open).catch(() => null);
         if (fresh === null) {
@@ -924,7 +965,8 @@ export const shell = { get backend() { return backend; }, get state() { return s
         // Своё же сохранение — экран не трогаем (курсор остаётся где был).
         if (fresh !== state.text) { state.text = fresh; lastKey = ""; render(); return; }
       }
-      renderSidebar();
+      // У других разделов своя панель: событие файла не должно стирать версии, папки видео и настройки.
+      if (state.section === "notes") renderSidebar();
     });
   }
   const demo = new URLSearchParams(location.search).get("open");

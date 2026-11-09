@@ -12,6 +12,7 @@ const nowS = () => Math.floor(Date.now() / 1000);
 export interface LockState { has_pin: boolean; needs_unlock: boolean; hello: boolean; wait: number | null }
 
 export const lockApi = {
+  force: () => invoke<void>("lock_force"),
   state: () => invoke<LockState>("lock_state", { now: nowS() }),
   seen: () => invoke<void>("lock_seen", { now: nowS() }),
   neededOnReturn: (since: number) => invoke<boolean>("lock_needed_on_return", { inactiveSince: since, now: nowS() }),
@@ -28,7 +29,7 @@ const cells = (filled: number, current: number | null, error: boolean) =>
 const waitText = (s: number) => (s < 60 ? `${s} с` : `${Math.ceil(s / 60)} мин`);
 
 /** Экран входа поверх приложения. Возвращает промис, который разрешится после входа. */
-export function showUnlock(state: LockState): Promise<void> {
+export function showUnlock(state: LockState, autoHello = true): Promise<void> {
   return new Promise((resolve) => {
     const el = document.createElement("div");
     el.className = "unlock";
@@ -117,7 +118,7 @@ export function showUnlock(state: LockState): Promise<void> {
     const timer = setInterval(() => { if (wait) { wait = wait > 1 ? wait - 1 : null; render(); } }, 1000);
     render();
     requestAnimationFrame(() => el.classList.add("shown"));
-    void askHello();
+    if (autoHello) void askHello();
   });
 }
 

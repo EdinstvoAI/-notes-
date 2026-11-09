@@ -74,7 +74,12 @@ pub fn screen_locked() -> bool {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 pub fn screen_locked() -> bool {
     false
+}
+
+#[cfg(target_os = "macos")]
+pub fn screen_locked() -> bool {
+    super::macos::call(serde_json::json!({"command": "screen_locked"})).ok().and_then(|v| v.as_bool()).unwrap_or(true)
 }

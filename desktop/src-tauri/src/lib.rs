@@ -3,6 +3,7 @@
 
 pub mod mcp;
 mod safe;
+mod intelligence;
 mod dictation;
 mod github;
 mod platform;
@@ -104,7 +105,7 @@ fn search(query: String, state: State<AppState>) -> Result<Vec<notes_core::Hit>,
 
 // ——— Календарь Apple (EventKit) — `platform/calendar.rs`. На Windows отвечает «нет». ———
 fn links_file(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    Ok(app.path().app_config_dir().map_err(|e| e.to_string())?.join("calendar-links.json"))
+    Ok(platform::settings::config_dir(&app)?.join("calendar-links.json"))
 }
 
 #[tauri::command]
@@ -135,6 +136,11 @@ fn cal_create_calendar(title: String) -> Result<(), String> { platform::calendar
 fn cal_rename_calendar(id: String, title: String) -> Result<(), String> { platform::calendar::rename_calendar(&id, &title) }
 
 /// Ключ задачи → id события: экран задач по ним показывает «в календаре».
+#[tauri::command]
+fn cal_set_color(id: String, color: String) -> Result<(), String> { platform::calendar::set_color(&id, &color) }
+#[tauri::command]
+fn cal_remove_calendar(id: String) -> Result<(), String> { platform::calendar::remove_calendar(&id) }
+
 #[tauri::command]
 fn cal_links(app: tauri::AppHandle) -> Result<std::collections::BTreeMap<String, String>, String> {
     Ok(platform::calendar::linked(&links_file(&app)?))
@@ -507,6 +513,15 @@ fn lock_state(now: i64, app: tauri::AppHandle) -> LockState {
     }
 }
 
+/// Блокировка экрана/сон переживает перезапуск и не даёт пятиминутную льготу.
+#[tauri::command]
+fn lock_force(app: tauri::AppHandle) {
+    let mut lock = platform::settings::lock(&app);
+    lock.last_seen = None;
+    platform::settings::save_lock(&app, &lock);
+    safe::safe_lock();
+}
+
 /// Приложение открыто и разблокировано сейчас — отсчёт «закрыл и сразу открыл» отсюда.
 #[tauri::command]
 fn lock_seen(now: i64, app: tauri::AppHandle) {
@@ -627,7 +642,7 @@ fn sherpa_onnx_wave(path: &str) -> Result<Vec<f32>, String> {
 }
 
 fn e5_folder(app: &tauri::AppHandle) -> std::path::PathBuf {
-    app.path().app_data_dir().unwrap_or_default().join("models").join("multilingual-e5-small")
+    crate::platform::settings::data_dir(&app).join("models").join("multilingual-e5-small")
 }
 
 #[tauri::command]
@@ -660,7 +675,7 @@ async fn meaning_search(query: String, app: tauri::AppHandle) -> Result<Vec<(Str
             *embedder = Some(notes_embed::Embedder::load(&e5_folder(&app))?);
         }
         let e = embedder.as_ref().unwrap();
-        let path = notes_embed::index_path(&app.path().app_local_data_dir().unwrap_or_default(), &vault.root().display().to_string());
+        let path = notes_embed::index_path(&crate::platform::settings::data_dir(&app), &vault.root().display().to_string());
         let mut index = notes_embed::Index::load(&path);
         let notes = notes_core::search::all_notes(&vault.tree());
         let rows = notes.into_iter().filter_map(|n| Some((n.path.clone(), n.modified, n.title.clone(), vault.read(&n.path).ok()?)));
@@ -758,10 +773,12 @@ fn video_save_note(id: String, app: tauri::AppHandle, state: State<AppState>) ->
     let item = video::list(&app).into_iter().find(|i| i.id == id).ok_or("нет расшифровки")?;
     let t = video::get(&app, &id).ok_or("нет расшифровки")?;
     with_vault(&state, |v| {
+        if let Some(path) = &item.saved_note { if v.read(path).is_ok() { return Ok(path.clone()); } }
         let dir = item.folder.as_ref().map_or("расшифровки".to_string(), |f| format!("расшифровки/{f}"));
         let path = v.create_note(&dir, &item.title).map_err(|e| e.to_string())?;
         let title = path.rsplit('/').next().unwrap_or(&path).trim_end_matches(".md").to_string();
         v.write(&path, &t.note(&title, &item.source, &item.added, item.duration, item.model.as_deref().unwrap_or("gigaam-v3-punct"))).map_err(|e| e.to_string())?;
+        video::remember_note(&app, &id, &path);
         Ok(path)
     })
 }
@@ -881,6 +898,9 @@ fn os() -> &'static str {
     std::env::consts::OS
 }
 
+#[cfg(target_os = "macos")]
+pub const DICTATION_SHORTCUT: &str = "alt+space";
+#[cfg(not(target_os = "macos"))]
 pub const DICTATION_SHORTCUT: &str = "ctrl+alt+space";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -906,6 +926,8 @@ pub fn run() {
         .manage(dictation::Dictation::default())
         .manage(AppState::default())
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            platform::settings::migrate(app.handle()).map_err(std::io::Error::other)?;
             if let Some(window) = app.get_webview_window("main") {
                 platform::window::apply_glass(&window);
                 // Отладка: `NOTES_SIZE=783x686` — окно ровно как у Swift-эталона, для снимков рядом.
@@ -937,12 +959,13 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             open_vault, create_vault, create_vault_at, set_app_icon, last_vault, tree, read_note, write_note, create_note, rename_note, search, tasks, os,
-            cal_state, cal_request, cal_calendars, cal_events, cal_move, cal_rename, cal_remove, cal_create_calendar, cal_rename_calendar, cal_links, cal_sync,
+            cal_state, cal_request, cal_calendars, cal_events, cal_move, cal_rename, cal_remove, cal_create_calendar, cal_rename_calendar, cal_set_color, cal_remove_calendar, cal_links, cal_sync,
             create_folder, duplicate, move_into, copy_in, trash, untrash, reveal, open_default, absolute, pins, set_pins,
             templates, create_from_template, daily,
             set_due, set_done, set_task_title, delete_task, append_task, export_ics, ics, prefs, set_prefs, vault_path, git_status, git_enable, git_commit, set_tray_icon, show_main, safe::safe_state, safe::safe_create, safe::safe_unlock, safe::safe_unlock_hello, safe::safe_lock, safe::safe_items, safe::safe_put, safe::safe_delete, safe::safe_import, safe::safe_codes, safe::safe_totp, safe::safe_generate, safe::safe_weak, safe::safe_copy, safe::screen_locked, mcp::mcp_info, mcp::mcp_clear_log, mcp::mcp_skills, mcp::mcp_install_skill, git_history, git_revert, git_restore, git_file_at, git_restore_file, selftest, selftest_slow, selftest_log, selftest_env, debug_section,
             github_status, github_code, github_finish, github_cancel, github_sign_out, github_sync, open_github,
-            lock_state, lock_seen, lock_needed_on_return, pin_set, pin_clear, pin_check, hello_verify,
+            intelligence::intelligence_state, intelligence::intelligence_apply,
+            lock_state, lock_force, lock_seen, lock_needed_on_return, pin_set, pin_clear, pin_check, hello_verify,
             dictation_toggle, models, model_download, model_remove, dictation_test,
             meaning_installed, meaning_download, meaning_search, selftest_install_e5,
             video_list, video_add, video_get, video_rename_speaker, video_delete, video_save_note, video_srt,

@@ -1,3 +1,4 @@
+import { lockApi, showUnlock } from "./lock";
 // Самопроверка в настоящем окне Tauri (`NOTES_SELFTEST=1`), как `-notesSelfTest` на маке: сценарий идёт
 // через настоящее Rust-ядро на настоящей папке — то, что Playwright на демо-хранилище не проверит.
 // Хранилище — тестовое, не настоящее.
@@ -17,6 +18,11 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
   // Для записи видео шаги видны глазом: NOTES_SELFTEST_SLOW=1 — пауза между проверками.
   const step = (await invoke<boolean>("selftest_slow")) ? 900 : 0;
   try {
+    await pause(700);
+    const glass = [...document.querySelectorAll<HTMLElement>(".topbar .notes-glass")];
+    await check("Edinstvo Glass: header surfaces", glass.length === 3 && glass.every(h => h.dataset.engine === "webgl" && !!h.querySelector(".notes-glass-canvas")));
+    const intelligence = await invoke<{supported: boolean; reason: string | null}>("intelligence_state");
+    await check("native intelligence availability", typeof intelligence.supported === "boolean" && (intelligence.reason === null || typeof intelligence.reason === "string"));
     const tree = await backend.tree();
     await check("vault tree from Rust", tree.folders.some((f) => f.name === "проекты"));
     await ui.openNote("проекты/план.md");
@@ -47,7 +53,7 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     await backend.write("версия.md", "для отката\n");
     await backend.gitCommit();
     ui.app.querySelector<HTMLElement>('[data-section="sync"]')?.click();
-    await pause(900);
+    for (let i = 0; i < 50 && !(ui.app.querySelectorAll(".metro-row").length >= 2 && ui.app.querySelector(".version-file")); i++) await pause(100);
     await check("sync section lists versions", ui.app.querySelectorAll(".metro-row").length >= 2 && !!ui.app.querySelector(".version-file"));
     const top = await invoke<{ id: string }[]>("git_history");
     await invoke("git_revert", { id: top[0].id });
@@ -123,10 +129,11 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     const badKey = await invoke("set_hotkey", { combo: "d" }).then(() => true).catch(() => false);
     await check("hotkey change rules", okKey && !badKey);
     // Пинкод: хранилище паролей ОС, экран входа, неверный и верный ввод клавишами.
-    const { lockApi, showUnlock } = await import("./lock");
     await lockApi.set("1234");
     const lock = await lockApi.state();
     await check("pin saved in OS keyring", lock.has_pin);
+    await lockApi.seen(); await lockApi.force();
+    await check("screen lock survives restart grace", (await lockApi.state()).needs_unlock);
     const unlocked = showUnlock({ ...lock, hello: false });
     await pause(400);
     const press = (k: string) => document.dispatchEvent(new KeyboardEvent("keydown", { key: k }));

@@ -1,5 +1,4 @@
-//! Вход по лицу или пальцу вместо пинкода: Windows Hello на Windows. Touch ID на маке — при переезде
-//! мака (LocalAuthentication); до тех пор на маке и Linux — только пинкод.
+//! Вход через Windows Hello или LocalAuthentication (Touch ID / пароль Mac).
 
 /// Есть ли на компьютере Windows Hello (камера или сканер пальца и настроенный вход).
 pub fn available() -> bool {
@@ -11,6 +10,8 @@ pub fn available() -> bool {
             .map(|a| a == UserConsentVerifierAvailability::Available)
             .unwrap_or(false);
     }
+    #[cfg(target_os = "macos")]
+    { return super::macos::call(serde_json::json!({"command": "auth_available"})).ok().and_then(|v| v.as_bool()).unwrap_or(false); }
     #[allow(unreachable_code)]
     false
 }
@@ -37,6 +38,11 @@ pub fn verify(window: &tauri::WebviewWindow, message: &str) -> bool {
             Ok(op.get()? == UserConsentVerificationResult::Verified)
         };
         return run().unwrap_or(false);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = window;
+        return super::macos::call(serde_json::json!({"command": "auth_verify", "text": message})).ok().and_then(|v| v.as_bool()).unwrap_or(false);
     }
     #[allow(unreachable_code)]
     {

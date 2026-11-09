@@ -1,7 +1,6 @@
-//! Раздел «пароли» — порт `SafeScreen.swift`/`SafeKeys.swift` (03.11.2026). Ключи сейфа живут в памяти,
-//! пока он открыт. На этом компьютере они запоминаются в Диспетчере учётных данных Windows, а достать их
-//! можно только после Windows Hello (на маке — Secure Enclave и Touch ID). Сами файлы сейфа — в хранилище,
-//! в том же формате, что на маке: один сейф открывается на обоих.
+//! Сейф вне папки заметок. На macOS ключи обёрнуты Secure Enclave и открываются
+//! через Touch ID / пароль Mac; на Windows — Credential Manager и Windows Hello.
+//! Прежний локальный сейф Swift открывается на месте, формат шифра общий.
 
 use crate::{platform, with_vault, AppState};
 use notes_core::safe::{self, Item, Keys};
@@ -13,6 +12,7 @@ struct Open {
     root: PathBuf,
     keys: Keys,
     items: Vec<Item>,
+    local: PathBuf,
 }
 
 static OPEN: Mutex<Option<Open>> = Mutex::new(None);
@@ -21,26 +21,84 @@ fn root(state: &State<AppState>) -> Result<PathBuf, String> {
     with_vault(state, |v| Ok(v.root().to_path_buf()))
 }
 
+/// Сейф — только на этом компьютере; путь хранилища даёт устойчивый идентификатор, не место записи.
+fn home(vault: &std::path::Path) -> Result<PathBuf, String> {
+    let tag = safe::vault_tag(&vault.display().to_string());
+    if let Some(root) = platform::settings::test_root() { return Ok(root.join(format!("safe-{tag}"))); }
+    #[cfg(target_os = "macos")]
+    let base = {
+        let support = PathBuf::from(std::env::var_os("HOME").ok_or("нет домашней папки")?).join("Library/Application Support");
+        // Открываем существующий сейф Swift на месте: не копируем и не меняем его ключи при переходе.
+        let legacy = support.join("makarkabanov").join(format!("safe-{tag}"));
+        if legacy.join(safe::FILE).exists() || legacy.join(safe::CODES_FILE).exists() { return Ok(legacy); }
+        support.join("ai.edinstvo.notes")
+    };
+    #[cfg(target_os = "windows")]
+    let base = PathBuf::from(std::env::var_os("APPDATA").ok_or("нет папки настроек")?).join("ai.edinstvo.notes");
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let base = PathBuf::from(std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config"))).join("ai.edinstvo.notes");
+    Ok(base.join(format!("safe-{tag}")))
+}
+
+#[cfg(target_os = "macos")]
+fn key_file(vault: &std::path::Path) -> Option<PathBuf> {
+    let home = home(vault).ok()?;
+    Some(home.with_extension("key"))
+}
+
 /// Запись в Диспетчере учётных данных — своя на каждое хранилище.
+#[cfg(not(target_os = "macos"))]
 fn entry(root: &std::path::Path) -> Option<keyring::Entry> {
     keyring::Entry::new("ai.edinstvo.notes", &format!("safe-{}", safe::vault_tag(&root.display().to_string()))).ok()
 }
 
+#[cfg(not(target_os = "macos"))]
 fn stored(root: &std::path::Path) -> Option<Keys> {
     serde_json::from_str(&entry(root)?.get_password().ok()?).ok()
 }
 
+#[cfg(not(target_os = "macos"))]
 fn remember(root: &std::path::Path, keys: &Keys) -> Result<(), String> {
     let e = entry(root).ok_or("нет хранилища паролей windows")?;
     e.set_password(&serde_json::to_string(keys).unwrap()).map_err(|e| e.to_string())
 }
 
-fn open_with(root: PathBuf, keys: Keys) -> Result<(), safe::Failure> {
-    let (items, split) = safe::open_vault(&root, &keys)?;
-    if split {
-        safe::save_vault(&root, &keys, &items)?;
+#[cfg(target_os = "macos")]
+fn remember(root: &std::path::Path, keys: &Keys) -> Result<(), String> {
+    let file = key_file(root).ok_or("нет папки ключей")?;
+    platform::macos::call(serde_json::json!({"command": "safe_store", "text": file, "keys": keys})).map(|_| ())
+}
+
+fn remembered(root: &std::path::Path) -> bool {
+    #[cfg(target_os = "macos")]
+    { return key_file(root).is_some_and(|p| p.exists()); }
+    #[cfg(not(target_os = "macos"))]
+    { stored(root).is_some() }
+}
+
+fn load_keys(root: &std::path::Path) -> Result<Keys, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let file = key_file(root).ok_or("нет папки ключей")?;
+        return serde_json::from_value(platform::macos::call(serde_json::json!({"command": "safe_load", "text": file}))?).map_err(|e| e.to_string());
     }
-    *OPEN.lock().unwrap() = Some(Open { root, keys, items });
+    #[cfg(not(target_os = "macos"))]
+    { stored(root).ok_or_else(|| "ключа на этом компьютере нет".into()) }
+}
+
+fn open_with(root: PathBuf, keys: Keys) -> Result<(), safe::Failure> {
+    let local = home(&root).map_err(safe::Failure::Io)?;
+    // Старую бету читаем без удаления исходников. Новые записи всегда остаются вне git-хранилища.
+    if !local.join(safe::FILE).exists() && !local.join(safe::CODES_FILE).exists() &&
+       (root.join(safe::FILE).exists() || root.join(safe::CODES_FILE).exists()) {
+        let (items, _) = safe::open_vault(&root, &keys)?;
+        safe::save_vault(&local, &keys, &items)?;
+    }
+    let (items, split) = safe::open_vault(&local, &keys)?;
+    if split {
+        safe::save_vault(&local, &keys, &items)?;
+    }
+    *OPEN.lock().unwrap() = Some(Open { root, keys, items, local });
     Ok(())
 }
 
@@ -57,8 +115,9 @@ pub struct SafeState {
 pub fn safe_state(state: State<AppState>) -> Result<SafeState, String> {
     let root = root(&state)?;
     let unlocked = OPEN.lock().unwrap().as_ref().is_some_and(|o| o.root == root);
-    Ok(SafeState { exists: safe::exists(&root, safe::FILE) || safe::exists(&root, safe::CODES_FILE),
-        remembered: stored(&root).is_some(), unlocked, hello: platform::auth::available() })
+    let local = home(&root)?;
+    Ok(SafeState { exists: safe::exists(&local, safe::FILE) || safe::exists(&local, safe::CODES_FILE) || safe::exists(&root, safe::FILE) || safe::exists(&root, safe::CODES_FILE),
+        remembered: remembered(&root), unlocked, hello: platform::auth::available() })
 }
 
 /// Новый сейф. Без пароля — два случайных ключа; сначала запоминаем их, потом пишем файлы, иначе ключи
@@ -94,12 +153,18 @@ pub fn safe_unlock(text: String, state: State<AppState>) -> Result<(), String> {
 #[tauri::command]
 pub async fn safe_unlock_hello(window: tauri::WebviewWindow, state: State<'_, AppState>) -> Result<bool, String> {
     let root = root(&state)?;
+    #[cfg(not(target_os = "macos"))]
     let ok = tauri::async_runtime::spawn_blocking(move || platform::auth::verify(&window, "Открыть сейф паролей")).await.unwrap_or(false);
+    #[cfg(not(target_os = "macos"))]
     if !ok {
         return Ok(false);
     }
-    let keys = stored(&root).ok_or("ключа на этом компьютере нет")?;
+    #[cfg(target_os = "macos")]
+    let _ = window;
+    let key_root = root.clone();
+    let keys = tauri::async_runtime::spawn_blocking(move || load_keys(&key_root)).await.map_err(|e| e.to_string())??;
     open_with(root.clone(), keys).map_err(|_| {
+        #[cfg(not(target_os = "macos"))]
         if let Some(e) = entry(&root) { let _ = e.delete_credential(); }
         "ключ на этом компьютере устарел — введи ключ сейфа".to_string()
     })?;
@@ -132,7 +197,7 @@ pub fn safe_put(mut item: Item) -> Result<(), String> {
             Some(i) => o.items[i] = item,
             None => o.items.insert(0, item),
         }
-        safe::save_vault(&o.root, &o.keys, &o.items).map_err(|e| e.to_string())
+        safe::save_vault(&o.local, &o.keys, &o.items).map_err(|e| e.to_string())
     })
 }
 
@@ -140,7 +205,7 @@ pub fn safe_put(mut item: Item) -> Result<(), String> {
 pub fn safe_delete(id: String) -> Result<(), String> {
     with_open(|o| {
         o.items.retain(|i| i.id != id);
-        safe::save_vault(&o.root, &o.keys, &o.items).map_err(|e| e.to_string())
+        safe::save_vault(&o.local, &o.keys, &o.items).map_err(|e| e.to_string())
     })
 }
 
@@ -152,7 +217,7 @@ pub fn safe_import(path: String) -> Result<usize, String> {
     with_open(|o| {
         let n = new.len();
         o.items.splice(0..0, new);
-        safe::save_vault(&o.root, &o.keys, &o.items).map(|_| n).map_err(|e| e.to_string())
+        safe::save_vault(&o.local, &o.keys, &o.items).map(|_| n).map_err(|e| e.to_string())
     })
 }
 

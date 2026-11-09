@@ -5,7 +5,7 @@
 use notes_speech::{media, Transcript};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Item {
@@ -25,10 +25,12 @@ pub struct Item {
     /// Какой моделью расшифровано — в шапку заметки.
     #[serde(default)]
     pub model: Option<String>,
+    #[serde(default)]
+    pub saved_note: Option<String>,
 }
 
 fn dir(app: &AppHandle) -> PathBuf {
-    app.path().app_data_dir().unwrap_or_default().join("transcripts")
+    crate::platform::settings::data_dir(&app).join("transcripts")
 }
 
 pub fn list(app: &AppHandle) -> Vec<Item> {
@@ -79,6 +81,7 @@ pub fn add(app: AppHandle, path: String, added: String) -> Result<Item, String> 
         error: None,
         folder: None,
         model: None,
+        saved_note: None,
     };
     update(&app, item.clone());
     let mut working = item.clone();
@@ -143,4 +146,10 @@ pub fn search(app: &AppHandle, query: &str) -> Vec<(String, String, String)> {
         let snippet = t.segments.iter().find(|s| norm(&s.text).contains(words[0])).map(|s| s.text.chars().take(140).collect()).unwrap_or_default();
         Some((i.id, i.title, snippet))
     }).take(8).collect()
+}
+
+pub fn remember_note(app: &AppHandle, id: &str, path: &str) {
+    if let Some(mut item) = list(app).into_iter().find(|i| i.id == id) {
+        item.saved_note = Some(path.into()); update(app, item);
+    }
 }

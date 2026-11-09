@@ -62,6 +62,8 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
     return;
   }
   let items: Item[] = [];
+  const ai = await invoke<{supported: boolean; reason: string | null}>("intelligence_state");
+  const intelligenceReady = ai.supported && !ai.reason && (await invoke<string>("prefs").then(s => JSON.parse(s).intelligence === true));
 
   // Папки расшифровок, как на маке: щелчок по папке — только её расшифровки, правый клик по расшифровке —
   // «в папку». Сохранённая заметка ложится в «расшифровки/папка/».
@@ -128,6 +130,7 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
       <p class="video-sub">${clock(item.duration)} · ${item.words} слов · ${esc(item.source)}</p>
       <div class="video-actions">
         <button class="pill primary-pill" data-note>сохранить как заметку</button>
+        ${intelligenceReady ? `<button class="pill" data-tasks>задачи в календарь</button>` : ""}
         <button class="pill" data-copy>копировать</button><button class="pill" data-srt>.srt</button><button class="pill" data-del>удалить</button>
       </div>
       <div class="caption-line">расшифровка</div>
@@ -159,6 +162,15 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
       const path = await invoke<string>("video_save_note", { id: item.id });
       await host.reload();
       await host.openNote(path);
+    } else if (item && b.dataset.tasks !== undefined) {
+      b.setAttribute("disabled", "");
+      try {
+        const path = await invoke<string>("video_save_note", { id: item.id });
+        const expected = await invoke<string>("read_note", { path });
+        await invoke("intelligence_apply", { path, expected, mode: "tasks" });
+        await host.reload(); await host.openNote(path);
+      } catch (error) { b.textContent = String(error); }
+      finally { b.removeAttribute("disabled"); }
     } else if (item && b.dataset.copy !== undefined) {
       const t = await invoke<Transcript | null>("video_get", { id: item.id });
       await navigator.clipboard.writeText(t?.segments.map((s) => s.text).join(" ") ?? "").catch(() => {});

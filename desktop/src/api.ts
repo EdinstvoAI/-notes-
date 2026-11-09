@@ -15,6 +15,7 @@ export interface TaskRow {
 
 /** Настройки интерфейса — вне хранилища (`prefs.json` в папке настроек приложения). */
 export interface Prefs {
+  intelligence?: boolean;
   theme?: "system" | "light" | "dark";
   textSize?: number;
   spellcheck?: boolean;

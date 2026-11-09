@@ -1,3 +1,4 @@
+import { startGlass } from "./glass";
 // Панель значка в трее — порт `MenuBarPanel.swift` (03.11.2026): сейф под рукой — найти, скопировать
 // пароль или код 2FA, плюс «открыть <notes>» и «надиктовать». Сейф тот же, что в окне (общий в Rust).
 
@@ -8,6 +9,8 @@ import { hello } from "./platform";
 
 interface Item { id: string; kind: "login" | "totp" | "secret"; title: string; username: string; url: string }
 interface State { exists: boolean; remembered: boolean; unlocked: boolean; hello: boolean; vault: boolean }
+
+startGlass();
 
 const root = document.querySelector<HTMLElement>(".tray")!;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);

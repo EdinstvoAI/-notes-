@@ -2,6 +2,8 @@
 //! На Windows — SendInput; разрешений, как «Универсальный доступ» на маке, не нужно.
 
 pub fn ctrl_v() {
+    #[cfg(target_os = "macos")]
+    { let _ = super::macos::call(serde_json::json!({"command": "paste"})); }
     #[cfg(target_os = "windows")]
     unsafe {
         use windows::Win32::UI::Input::KeyboardAndMouse::*;

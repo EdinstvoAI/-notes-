@@ -54,7 +54,7 @@ pub fn chosen(app: &AppHandle) -> (Model, String) {
 }
 
 pub fn store(app: &AppHandle) -> ModelStore {
-    ModelStore::new(app.path().app_data_dir().unwrap_or_default().join("models"))
+    ModelStore::new(crate::platform::settings::data_dir(&app).join("models"))
 }
 
 fn emit(app: &AppHandle, event: Event) {

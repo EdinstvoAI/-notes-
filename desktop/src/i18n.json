@@ -1955,5 +1955,7 @@
 "created private repo $1. history is pushed there once a day",
 "napravljen privatni repozitorijum $1. istorija se šalje tamo jednom dnevno"
 ]
-]
+],
+"коралловый": {"en": "coral", "sr": "koralna"},
+"Удалить календарь со всеми событиями?": {"en": "Delete the calendar and all its events?", "sr": "Obrisati kalendar i sve događaje?"}
 }

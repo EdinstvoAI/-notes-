@@ -23,6 +23,14 @@ pub fn reveal(path: &Path) -> std::io::Result<()> {
 
 /// В Корзину Windows или macOS, а не насовсем: как на маке, удалённое можно вернуть.
 pub fn trash(path: &Path) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let target = super::macos::call(serde_json::json!({"command": "trash", "text": path.to_string_lossy()}))?;
+        let target = target.as_str().filter(|p| !p.is_empty()).ok_or("Корзина не вернула путь")?;
+        TRASHED.lock().map_err(|e| e.to_string())?.insert(path.to_path_buf(), target.into());
+        return Ok(());
+    }
+    #[cfg(not(target_os = "macos"))]
     trash::delete(path).map_err(|e| e.to_string())
 }
 
@@ -41,8 +49,22 @@ pub fn open_github(url: &str) -> Result<(), String> {
 }
 
 /// Вернуть из Корзины на старое место — для Ctrl+Z после «удалить». На Windows и Linux через список
-/// Корзины; на маке Finder не даёт этого программам — там вернуть можно только руками.
+/// Корзины; на маке — по квитанции FileManager этого запуска, без управления Finder.
+#[cfg(target_os = "macos")]
+static TRASHED: std::sync::Mutex<std::collections::BTreeMap<std::path::PathBuf, std::path::PathBuf>> = std::sync::Mutex::new(std::collections::BTreeMap::new());
+
 pub fn untrash(path: &Path) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let mut receipts = TRASHED.lock().map_err(|e| e.to_string())?;
+        let source = receipts.get(path).ok_or("нет удалённого этим запуском файла")?;
+        // За время удаления по старому пути мог появиться новый файл: отмена не затирает его.
+        if path.exists() { return Err("на прежнем месте уже есть файл".into()); }
+        if let Some(parent) = path.parent() { std::fs::create_dir_all(parent).map_err(|e| e.to_string())?; }
+        std::fs::rename(source, path).map_err(|e| e.to_string())?;
+        receipts.remove(path);
+        return Ok(());
+    }
     #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
     {
         let items = trash::os_limited::list().map_err(|e| e.to_string())?;

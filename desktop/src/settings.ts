@@ -76,6 +76,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   let gh = await host.backend.githubStatus();
   // Вход по коду: код на экране, пока ждём подтверждения на github.com.
   let login: { code: string; url: string; error?: string } | null = null;
+  const intelligence = host.backend.inTauri ? await invoke<{supported: boolean; reason: string | null}>("intelligence_state") : { supported: false, reason: null };
   const isMac = document.body.classList.contains("tauri-macos");
 
   function body(): string {
@@ -87,6 +88,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
             host.backend.inTauri ? toggle("autostart", autostartOn) : later())
           + row("размер текста заметок", "", choice("textSize", prefs.textSize ?? 15, [13, 15, 17, 19].map((n) => [n, String(n)])))
           + row("проверка орфографии", "подчёркивать слова с ошибками", toggle("spellcheck", prefs.spellcheck ?? true))
+          + (intelligence.supported ? row("apple intelligence", intelligence.reason ?? "кратко для заметок, на этом mac", intelligence.reason ? "" : toggle("intelligence", prefs.intelligence ?? false)) : "")
           + note(os("настройки хранятся на этом компьютере, в заметки не попадают", "настройки хранятся на этом mac, в заметки не попадают"));
       case "sync": {
         // Как SyncPage на маке: хранилище, история, github, как часто, последний коммит и отправка.

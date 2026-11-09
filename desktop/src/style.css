@@ -1,3 +1,5 @@
+@import "@edinstvo/glass/glass.css" layer(glass);
+
 /* Вид — 1:1 с мак-версией (`<notes>/Theme.swift`, `Notes/NotesWindow.swift`). Числа — из кадров Figma. */
 
 @font-face { font-family: "Martian Logo"; src: url("./fonts/MartianGrotesk-xWdUlt.otf") format("opentype"); font-display: block; }
@@ -494,10 +496,16 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
   opacity: 0; transition: opacity .3s var(--smooth), transform .3s var(--smooth); z-index: 50; }
 .toast.shown { opacity: 1; transform: translate(-50%, 0); }
 
-/* Жидкое стекло капсул (glass.ts): WebGL-линза вместо CSS-размытия, содержимое — поверх. */
-.group.liquid { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06); }
-.glass-lens { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 18px; pointer-events: none; z-index: 0; }
-.group.liquid > :not(.glass-lens) { position: relative; z-index: 1; }
+/* Материал Edinstvo Glass; при потере GPU остаётся CSS-материал библиотеки. */
+.notes-glass[data-engine="webgl"] {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.notes-glass-canvas { pointer-events: none; }
+/* Координаты линзы задаёт библиотека; раскладка первого входа относится только к содержимому. */
+.onboarding .unlock-sheet > .notes-glass-canvas { transform: none; margin: 0; }
+
 .group.liquid > .logo, .group.liquid > .search { position: absolute; }
 
 /* Загрузка и шаги первого входа (ONBOARDING.md §0) */
@@ -758,3 +766,9 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .label-out { position: absolute; top: 50%; transform: translateY(-50%); font-style: normal; white-space: nowrap; pointer-events: none; animation: blur-out .35s var(--smooth) forwards; }
 @keyframes slats-out { to { opacity: 0; } }
 .slats-out { pointer-events: none; animation: slats-out .5s ease-in-out forwards; }
+
+/* У листа нижние углы прямые. Движок рисует прямоугольник, маска скругляет только верх. */
+.sheet.notes-glass, .unlock-sheet.notes-glass {
+  border-radius: 0;
+  clip-path: inset(0 round 18px 18px 0 0);
+}

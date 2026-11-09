@@ -152,6 +152,27 @@ mod mac {
         }
     }
 
+    pub fn set_color(id: &str, color: &str) -> Result<(), String> {
+        let color = color.strip_prefix('#').filter(|s| s.len() == 6).ok_or("неверный цвет")?;
+        let n = u32::from_str_radix(color, 16).map_err(|_| "неверный цвет")?;
+        let s = store();
+        unsafe {
+            let c = s.calendarWithIdentifier(&NSString::from_str(id)).ok_or("календаря нет")?;
+            let color = objc2_app_kit::NSColor::colorWithSRGBRed_green_blue_alpha(((n >> 16) & 255) as f64 / 255.0, ((n >> 8) & 255) as f64 / 255.0, (n & 255) as f64 / 255.0, 1.0);
+            c.setColor(Some(&color));
+            s.saveCalendar_commit_error(&c, true).map_err(err)
+        }
+    }
+
+    pub fn remove_calendar(id: &str) -> Result<(), String> {
+        let s = store();
+        unsafe {
+            if s.defaultCalendarForNewEvents().is_some_and(|c| c.calendarIdentifier().to_string() == id) { return Err("это календарь по умолчанию".into()); }
+            let c = s.calendarWithIdentifier(&NSString::from_str(id)).ok_or("календаря нет")?;
+            s.removeCalendar_commit_error(&c, true).map_err(err)
+        }
+    }
+
     fn links(file: &Path) -> BTreeMap<String, String> {
         std::fs::read_to_string(file).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
     }
@@ -232,6 +253,8 @@ mod other {
     pub fn remove_event(_: &str) -> Result<(), String> { Err(NO.into()) }
     pub fn create_calendar(_: &str) -> Result<(), String> { Err(NO.into()) }
     pub fn rename_calendar(_: &str, _: &str) -> Result<(), String> { Err(NO.into()) }
+    pub fn set_color(_: &str, _: &str) -> Result<(), String> { Err(NO.into()) }
+    pub fn remove_calendar(_: &str) -> Result<(), String> { Err(NO.into()) }
     pub fn linked(_: &Path) -> BTreeMap<String, String> { BTreeMap::new() }
     pub fn sync(_: &[Wanted], _: Option<&str>, _: u32, _: &Path) -> Result<usize, String> { Ok(0) }
 }

@@ -8,6 +8,7 @@
 import { blurIn, leaving } from "./motion";
 import type { Api, TaskRow } from "./api";
 import { icon } from "./icons";
+import { showMenu, type MenuItem } from "./menu";
 import { os } from "./platform";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -237,6 +238,35 @@ export function mountCalendar(root: HTMLElement, sidebar: HTMLElement, host: Cal
       input.addEventListener("blur", () => void done(true), { once: true });
     }
   }
+
+  sidebar.oncontextmenu = (event) => {
+    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-calendar]");
+    const calendar = calendars.find(c => c.id === row?.dataset.calendar);
+    if (!row || !calendar) return;
+    event.preventDefault();
+    const run = async (command: string, args: Record<string, string>) => {
+      try { await invoke(command, args); await render(true); }
+      catch (error) { row.title = String(error); }
+    };
+    const items: MenuItem[] = [{ label: "переименовать", run: () => {
+      const label = row.querySelector("span")!;
+      const input = document.createElement("input"); input.className = "cal-new-name"; input.value = calendar.title;
+      label.replaceWith(input); input.focus(); input.select();
+      let done = false;
+      const finish = async (save: boolean) => { if (done) return; done = true;
+        if (save && input.value.trim()) await run("cal_rename_calendar", { id: calendar.id, title: input.value.trim() });
+        else await render(true);
+      };
+      input.onclick = e => e.stopPropagation(); input.onblur = () => void finish(true);
+      input.onkeydown = e => { if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); void finish(e.key === "Enter"); } };
+    } }, { label: "цвет", run: () => showMenu(event.clientX, event.clientY,
+      [["коралловый", "#e54d33"], ["зелёный", "#34c759"], ["синий", "#007aff"], ["фиолетовый", "#af52de"]].map(([label, color]) => ({label, run: () => void run("cal_set_color", {id: calendar.id, color})}))) }];
+    if (!calendar.main) items.push({ label: "удалить календарь", danger: true, run: () => void (async () => {
+      const { ask } = await import("@tauri-apps/plugin-dialog");
+      if (await ask(calendar.title, {title: "Удалить календарь со всеми событиями?", kind: "warning"})) await run("cal_remove_calendar", {id: calendar.id});
+    })() });
+    showMenu(event.clientX, event.clientY, items);
+  };
 
   let shownPlace = "";
   async function render(keepScroll = false) {
