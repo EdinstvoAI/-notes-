@@ -99,3 +99,7 @@
 - `desktop/src-tauri/native/MacBridge.swift` — системные API Apple за C ABI.
 - `desktop/src-tauri/src/platform/macos.rs` — безопасная граница Rust/Swift и освобождение ответа.
 - `desktop/src-tauri/src/intelligence.rs` — команды Foundation Models с проверкой параллельной правки.
+
+- `desktop/src-tauri/tauri.windows.conf.json` — рамка Windows и оформление NSIS.
+- `desktop/src-tauri/icons/installer-header.bmp` — шапка NSIS 150×57 из графики приложения.
+- `desktop/src-tauri/icons/installer-sidebar.bmp` — боковая панель NSIS 164×314.
