@@ -20,7 +20,7 @@ const lockTitle = (s: number) => s === 0 ? "никогда" : s < 60 ? `${s} с�
 const STEPS = [
   os("открой Edge, Chrome или «Пароли iCloud» для Windows", "открой «Пароли» на маке, Chrome или Safari"),
   "выгрузи пароли в файл CSV: настройки → пароли → экспорт",
-  "здесь нажми «выбрать файл» и укажи его",
+  "нажми «импортировать CSV» и выбери выгруженный файл",
   "удали этот файл и очисти корзину: в нём пароли открытым текстом",
 ];
 
@@ -131,7 +131,7 @@ export async function mountSafe(root: HTMLElement, sidebar: HTMLElement, host: S
       + `<button class="row" style="padding-left:8px" data-side="key">${icon("key")}<span>ключ для другого компьютера</span></button>
          <button class="row" style="padding-left:8px" data-side="lock">${icon("settings")}<span>закрыть сейф</span></button>` : "";
     const title = state.unlocked ? KINDS.find(([k]) => k === st.kind)![1] : "пароли";
-    const sub = state.unlocked ? "в зашифрованном файле .safe/safe.enc, на github — только шифром"
+    const sub = state.unlocked ? "пароли и коды хранятся на этом компьютере"
       : state.remembered && state.hello ? os("сейф открывается windows hello: лицо, палец или пин-код windows", "открой touch id или паролем mac")
       : state.exists ? os("на новом компьютере — ключ сейфа один раз, дальше windows hello", "введи мастер-пароль сейфа — дальше хватит touch id")
       : os("ключ придумает компьютер и спрячет в диспетчер учётных данных — открывать будешь windows hello", "ключ придумает компьютер и спрячет в связку ключей — открывать будешь touch id");
@@ -140,10 +140,10 @@ export async function mountSafe(root: HTMLElement, sidebar: HTMLElement, host: S
     else {
       const p = host.prefs();
       const list = st.items.filter((i) => i.kind === st.kind);
-      body = `<div class="safe-actions">${coral("add", "добавить")}<button class="outline-pill" data-act="import">${st.importing ? "скрыть перенос" : os("перенести из браузера", "перенести из «Паролей»")}</button></div>`
+      body = `<div class="safe-actions">${coral("add", "добавить")}<button class="outline-pill" data-act="import">${st.importing ? "скрыть перенос" : os("импортировать пароли из CSV", "импортировать пароли из CSV")}</button></div>`
         + (st.adding ? addForm() : "")
-        + (st.importing || (!st.items.length && !st.adding) ? `<div class="safe-guide">${STEPS.map((s, i) => `<p><b>${i + 1}</b>${s}</p>`).join("")}
-            <div class="safe-actions"><button class="pill" data-act="pick">выбрать файл</button></div></div>` : "")
+        + (st.importing ? `<div class="safe-guide">${STEPS.map((s, i) => `<p><b>${i + 1}</b>${s}</p>`).join("")}
+            <div class="safe-actions"><button class="pill" data-act="pick">импортировать CSV</button></div></div>` : "")
         + (!st.adding && st.items.length && !list.length ? `<small class="safe-empty">здесь пока пусто — нажми «добавить»</small>` : "")
         + (st.kind === "totp" ? (list.some((i) => i.id === st.open) ? row(list.find((i) => i.id === st.open)!) : "") + `<div class="code-cards">${list.map(card).join("")}</div>` : list.map(row).join(""))
         + `<div class="setting"><div><b>закрывать сам</b><small>${(p.safeLockSeconds ?? 300) === 0 ? "никогда — опасно: открытый сейф увидит любой, кто сел за компьютер"

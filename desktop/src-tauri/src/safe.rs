@@ -6,7 +6,7 @@ use crate::{platform, with_vault, AppState};
 use notes_core::safe::{self, Item, Keys};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{Manager, State};
 
 struct Open {
     root: PathBuf,
@@ -112,12 +112,14 @@ pub struct SafeState {
 }
 
 #[tauri::command]
-pub fn safe_state(state: State<AppState>) -> Result<SafeState, String> {
-    let root = root(&state)?;
-    let unlocked = OPEN.lock().unwrap().as_ref().is_some_and(|o| o.root == root);
-    let local = home(&root)?;
-    Ok(SafeState { exists: safe::exists(&local, safe::FILE) || safe::exists(&local, safe::CODES_FILE) || safe::exists(&root, safe::FILE) || safe::exists(&root, safe::CODES_FILE),
-        remembered: remembered(&root), unlocked, hello: platform::auth::available() })
+pub async fn safe_state(app: tauri::AppHandle) -> Result<SafeState, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = root(&app.state::<AppState>())?;
+        let unlocked = OPEN.lock().unwrap().as_ref().is_some_and(|o| o.root == root);
+        let local = home(&root)?;
+        Ok(SafeState { exists: safe::exists(&local, safe::FILE) || safe::exists(&local, safe::CODES_FILE) || safe::exists(&root, safe::FILE) || safe::exists(&root, safe::CODES_FILE),
+            remembered: remembered(&root), unlocked, hello: platform::auth::available() })
+    }).await.map_err(|error| error.to_string())?
 }
 
 /// Новый сейф. Без пароля — два случайных ключа; сначала запоминаем их, потом пишем файлы, иначе ключи

@@ -1957,5 +1957,14 @@
 ]
 ],
 "коралловый": {"en": "coral", "sr": "koralna"},
-"Удалить календарь со всеми событиями?": {"en": "Delete the calendar and all its events?", "sr": "Obrisati kalendar i sve događaje?"}
+"Удалить календарь со всеми событиями?": {"en": "Delete the calendar and all its events?", "sr": "Obrisati kalendar i sve događaje?"},
+"загружаем…": {"en": "loading…", "sr": "učitavanje…"},
+"не удалось загрузить": {"en": "could not load", "sr": "učitavanje nije uspelo"},
+"часть настроек не загрузилась": {"en": "some settings could not be loaded", "sr": "neka podešavanja nisu učitana"},
+"проверяем модель…": {"en": "checking model…", "sr": "provera modela…"},
+"не удалось проверить модель": {"en": "could not check the model", "sr": "provera modela nije uspela"},
+"импортировать пароли из CSV": {"en": "import passwords from CSV", "sr": "uvezi lozinke iz CSV-a"},
+"импортировать CSV": {"en": "import CSV", "sr": "uvezi CSV"},
+"нажми «импортировать CSV» и выбери выгруженный файл": {"en": "click “import CSV” and choose the exported file", "sr": "klikni na „uvezi CSV” i izaberi izvezenu datoteku"},
+"пароли и коды хранятся на этом компьютере": {"en": "passwords and codes are stored on this computer", "sr": "lozinke i kodovi se čuvaju na ovom računaru"}
 }

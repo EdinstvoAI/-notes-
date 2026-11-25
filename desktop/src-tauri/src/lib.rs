@@ -32,6 +32,8 @@ struct TaskRow {
     task: notes_core::Task,
 }
 
+// Команды экранов, которые читают git, секреты, Windows Hello или диск, — `async`: синхронные Tauri 2
+// выполняет в главном потоке, и окно замирает (а `.get()` у WinRT в UI-потоке может не вернуться) — issue #3, #4.
 fn with_vault<T>(state: &State<AppState>, f: impl FnOnce(&Vault) -> Result<T, String>) -> Result<T, String> {
     let guard = state.vault.lock().map_err(|e| e.to_string())?;
     let vault = guard.as_ref().ok_or("no vault open")?;
@@ -74,7 +76,7 @@ fn last_vault(state: State<AppState>, app: tauri::AppHandle) -> Option<Folder> {
 }
 
 #[tauri::command]
-fn tree(state: State<AppState>) -> Result<Folder, String> {
+async fn tree(state: State<'_, AppState>) -> Result<Folder, String> {
     with_vault(&state, |v| Ok(v.tree()))
 }
 
@@ -216,7 +218,7 @@ fn set_pins(pins: Vec<String>, app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn templates(state: State<AppState>) -> Result<Vec<String>, String> {
+async fn templates(state: State<'_, AppState>) -> Result<Vec<String>, String> {
     with_vault(&state, |v| Ok(v.templates()))
 }
 
@@ -296,14 +298,16 @@ struct GitStatus {
 }
 
 #[tauri::command]
-fn git_status(state: State<AppState>) -> Result<GitStatus, String> {
-    with_vault(&state, |v| {
-        if !notes_core::git::is_repository(v.root()) {
-            return Ok(GitStatus { repo: false, last_commit: None, commits: 0, pending: 0 });
-        }
-        let h = notes_core::git::History::open(v.root()).map_err(|e| e.to_string())?;
-        Ok(GitStatus { repo: true, last_commit: h.last_commit(), commits: h.commit_count(), pending: h.changes().map(|c| c.len()).unwrap_or(0) })
-    })
+async fn git_status(app: tauri::AppHandle) -> Result<GitStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_vault(&app.state::<AppState>(), |v| {
+            if !notes_core::git::is_repository(v.root()) {
+                return Ok(GitStatus { repo: false, last_commit: None, commits: 0, pending: 0 });
+            }
+            let h = notes_core::git::History::open(v.root()).map_err(|e| e.to_string())?;
+            Ok(GitStatus { repo: true, last_commit: h.last_commit(), commits: h.commit_count(), pending: h.changes().map(|c| c.len()).unwrap_or(0) })
+        })
+    }).await.map_err(|error| error.to_string())?
 }
 
 /// Включить историю: создать репозиторий (или открыть свой) и первый коммит.
@@ -404,16 +408,18 @@ struct GithubStatus {
 }
 
 #[tauri::command]
-fn github_status(state: State<AppState>) -> Result<GithubStatus, String> {
-    let signed_in = platform::secrets::token().is_some();
-    with_vault(&state, |v| {
-        let history = notes_core::git::History::open(v.root()).ok();
-        Ok(GithubStatus {
-            signed_in,
-            remote: history.as_ref().and_then(|h| h.remote_url()),
-            unpushed: history.as_ref().is_some_and(|h| h.has_unpushed()),
+async fn github_status(app: tauri::AppHandle) -> Result<GithubStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let signed_in = platform::secrets::token().is_some();
+        with_vault(&app.state::<AppState>(), |v| {
+            let history = notes_core::git::History::open(v.root()).ok();
+            Ok(GithubStatus {
+                signed_in,
+                remote: history.as_ref().and_then(|h| h.remote_url()),
+                unpushed: history.as_ref().is_some_and(|h| h.has_unpushed()),
+            })
         })
-    })
+    }).await.map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -502,15 +508,17 @@ struct LockState {
 }
 
 #[tauri::command]
-fn lock_state(now: i64, app: tauri::AppHandle) -> LockState {
-    let has_pin = platform::secrets::pin().is_some();
-    let lock = platform::settings::lock(&app);
-    LockState {
-        has_pin,
-        needs_unlock: has_pin && notes_core::lock::policy::at_launch(lock.last_seen, now),
-        hello: has_pin && platform::auth::available(),
-        wait: lock.attempts.remaining(now),
-    }
+async fn lock_state(now: i64, app: tauri::AppHandle) -> Result<LockState, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let has_pin = platform::secrets::pin().is_some();
+        let lock = platform::settings::lock(&app);
+        LockState {
+            has_pin,
+            needs_unlock: has_pin && notes_core::lock::policy::at_launch(lock.last_seen, now),
+            hello: has_pin && platform::auth::available(),
+            wait: lock.attempts.remaining(now),
+        }
+    }).await.map_err(|error| error.to_string())
 }
 
 /// Блокировка экрана/сон переживает перезапуск и не даёт пятиминутную льготу.
@@ -598,9 +606,9 @@ struct ModelStatus {
 }
 
 #[tauri::command]
-fn models(app: tauri::AppHandle) -> Vec<ModelStatus> {
+async fn models(app: tauri::AppHandle) -> Result<Vec<ModelStatus>, String> {
     let store = dictation::store(&app);
-    notes_speech::Model::ALL.iter().map(|&m| ModelStatus { id: m.id(), installed: store.is_installed(m), download_mb: m.download_mb() }).collect()
+    Ok(notes_speech::Model::ALL.iter().map(|&m| ModelStatus { id: m.id(), installed: store.is_installed(m), download_mb: m.download_mb() }).collect())
 }
 
 /// Скачать модель; ход — событием `model-progress` (0…1).
@@ -646,8 +654,8 @@ fn e5_folder(app: &tauri::AppHandle) -> std::path::PathBuf {
 }
 
 #[tauri::command]
-fn meaning_installed(app: tauri::AppHandle) -> bool {
-    notes_embed::is_installed(&e5_folder(&app))
+async fn meaning_installed(app: tauri::AppHandle) -> Result<bool, String> {
+    Ok(notes_embed::is_installed(&e5_folder(&app)))
 }
 
 /// Скачать модель поиска по смыслу; ход — событием `meaning-progress`.
@@ -733,8 +741,8 @@ fn video_mark(id: String, index: usize, speaker: usize, app: tauri::AppHandle) -
 }
 
 #[tauri::command]
-fn speakers_installed(app: tauri::AppHandle) -> bool {
-    notes_speech::speakers::Speakers::new(&dictation::store(&app).root).is_installed()
+async fn speakers_installed(app: tauri::AppHandle) -> Result<bool, String> {
+    Ok(notes_speech::speakers::Speakers::new(&dictation::store(&app).root).is_installed())
 }
 
 #[tauri::command]
@@ -789,8 +797,8 @@ fn video_srt(id: String, path: String, app: tauri::AppHandle) -> Result<(), Stri
 }
 
 #[tauri::command]
-fn autostart() -> bool {
-    platform::autostart::enabled()
+async fn autostart() -> Result<bool, String> {
+    Ok(platform::autostart::enabled())
 }
 
 #[tauri::command]

@@ -76,7 +76,7 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
   const pass = (i: Item, f: Filter) => f === "all" || (f === "working" ? working(i) : f === "done" ? i.words !== null && !i.error : false);
   const folderList = () => [...new Set(items.map((i) => i.folder).filter((f): f is string => !!f))].sort();
   const plural = (n: number, one: string, few: string, many: string) => n % 10 === 1 && n % 100 !== 11 ? one : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? few : many;
-  let model = "GigaAM v3";
+  let model = "проверяем модель…";
   const renderSidebar = () => {
     sidebar.innerHTML = FILTERS.map(([f, title]) => `<button class="row${filter === f && !folderFilter ? " selected" : ""}" style="padding-left:8px" data-vfilter="${f}">${icon(f === "done" ? "taskDone" : "video")}<span>${title}</span><small class="count">${items.filter((i) => pass(i, f)).length}</small></button>`).join("")
       + folderList().map((f) => `<button class="row${folderFilter === f ? " selected" : ""}" style="padding-left:8px" data-vfolder="${esc(f)}">${icon("folder")}<span>${esc(f)}</span><small class="count">${items.filter((i) => i.folder === f).length}</small></button>`).join("")
@@ -96,7 +96,7 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
     const visible = items.filter((i) => pass(i, filter) && (!folderFilter || i.folder === folderFilter));
     const folders = folderList();
     return `<div class="video">
-    <h1>видео</h1><p class="video-sub">${items.length} ${plural(items.length, "расшифровка", "расшифровки", "расшифровок")} | распознаёт ${model}</p>
+    <h1>видео</h1><p class="video-sub">${items.length} ${plural(items.length, "расшифровка", "расшифровки", "расшифровок")} | <span>${model}</span></p>
     <button class="drop-zone" data-pick>
       <canvas class="drop-canvas"></canvas>
       ${icon("plus", 24)}<b>перетащи видео или аудио</b><small>или нажми, чтобы выбрать · mp4, mov, mp3, wav, flac и другие</small>
@@ -140,7 +140,10 @@ export async function mountVideo(root: HTMLElement, sidebar: HTMLElement, host: 
   async function render() {
     items = await invoke<Item[]>("video_list");
     const id = (JSON.parse(await invoke<string>("prefs").catch(() => "{}")) as { speechModel?: string }).speechModel ?? "gigaam-v3-punct";
-    model = id.includes("turbo") ? "Whisper large-v3 turbo" : id.includes("small") ? "Whisper small" : "GigaAM v3";
+    const name = id.includes("turbo") ? "Whisper large-v3 turbo" : id.includes("small") ? "Whisper small" : "GigaAM v3";
+    // Название — только если модель правда лежит на диске (issue #5); иначе фраза мака «модель не скачана».
+    const installed = await invoke<{ id: string; installed: boolean }[]>("models").then((m) => m.find((x) => x.id === id)?.installed ?? false).catch(() => null);
+    model = installed === null ? "не удалось проверить модель" : installed ? `распознаёт ${name}` : `модель ${name} не скачана`;
     renderSidebar();
     const item = items.find((i) => i.id === open);
     host.onCrumb(item ? `видео / ${item.title}` : "видео");

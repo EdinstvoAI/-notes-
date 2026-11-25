@@ -66,13 +66,13 @@ const isDark = () =>
 // ——— каркас окна: рисуется один раз, дальше меняются только части ———
 app.innerHTML = `
   <canvas class="slats"></canvas>
-  <header class="topbar arrive" style="transition-delay:.05s">
-    <div class="group brand">
+  <header data-tauri-drag-region class="topbar arrive" style="transition-delay:.05s">
+    <div data-tauri-drag-region class="group brand">
       <button class="logo" data-go="home">&lt;notes&gt;</button>
       <button class="search">${icon("search")}<span>поиск</span><kbd class="keycap">${os("Ctrl K", "⌘K")}</kbd></button>
     </div>
-    <nav class="group sections"></nav>
-    <div class="group sync">${icon("git")}<span class="sync-text">без git</span></div>
+    <nav data-tauri-drag-region class="group sections"></nav>
+    <div data-tauri-drag-region class="group sync">${icon("git")}<span class="sync-text">без git</span></div>
   </header>
   <div class="sheet arrive" style="transition-delay:.15s"></div>
   <button class="crumb arrive" style="transition-delay:.2s"></button>
@@ -133,17 +133,27 @@ function revealLabels(left = new Map<string, number>()) {
   });
 }
 const FITS = ["full", "nosync", "hybrid", "icons"] as const;
+void document.fonts.ready.then(() => fitHeader());
 function fitHeader() {
   const left = new Map<string, number>();
   nav.querySelectorAll<HTMLElement>(".section").forEach((b) => { const l = b.querySelector("span")!; if (l.offsetWidth) left.set(b.dataset.section!, l.offsetLeft); });
   for (const fit of FITS) {
     topbar.dataset.fit = fit;
-    if (topbar.scrollWidth <= topbar.clientWidth) break;
+    // Оптические canvas выступают за капсулы и увеличивают scrollWidth, хотя кнопки уже помещаются.
+    const edge = topbar.getBoundingClientRect().right;
+    if ([...topbar.children].every(child => child.getBoundingClientRect().right <= edge + 0.5)) break;
   }
   movePill();
   revealLabels(left);
 }
-new ResizeObserver(() => { paintSlats(); fitHeader(); }).observe(app);
+let resizeFrame = 0;
+new ResizeObserver(() => {
+  if (resizeFrame) return;
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = 0;
+    paintSlats(); fitHeader(); refreshGlass();
+  });
+}).observe(app);
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
   // Системная смена темы — тоже наплывом, как ThemeCrossfade на маке.
   document.documentElement.classList.add("theming"); setTimeout(() => document.documentElement.classList.remove("theming"), 600);
@@ -175,7 +185,9 @@ function showHint(el: HTMLElement | null, text = "") {
   if (!el || !text) return;
   hint.textContent = text;
   const r = el.getBoundingClientRect();
-  hint.style.left = `${r.left + r.width / 2}px`;
+  // Под кнопкой у края окна плашка уходила за край и обрезалась (issue #11): держим её в окне с отступом 8.
+  const half = hint.offsetWidth / 2, margin = 8;
+  hint.style.left = `${Math.min(Math.max(r.left + r.width / 2, half + margin), innerWidth - half - margin)}px`;
   hint.style.top = `${r.bottom + 8}px`;
 }
 nav.addEventListener("mouseover", (e) => {

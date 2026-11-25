@@ -1,0 +1,36 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "<notes>",
+        "width": 1200,
+        "height": 760,
+        "minWidth": 870,
+        "minHeight": 760,
+        "decorations": false,
+        "transparent": true,
+        "windowEffects": {
+          "effects": [
+            "mica"
+          ]
+        }
+      }
+    ]
+  },
+  "bundle": {
+    "windows": {
+      "nsis": {
+        "headerImage": "icons/installer-header.bmp",
+        "sidebarImage": "icons/installer-sidebar.bmp",
+        "installerIcon": "icons/icon.ico",
+        "displayLanguageSelector": true,
+        "languages": [
+          "English",
+          "Russian",
+          "SerbianLatin"
+        ]
+      }
+    }
+  }
+}

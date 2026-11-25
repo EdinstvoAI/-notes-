@@ -3,11 +3,11 @@ use crate::{platform, with_vault, AppState};
 use tauri::State;
 
 #[tauri::command]
-pub fn intelligence_state() -> serde_json::Value {
+pub async fn intelligence_state() -> Result<serde_json::Value, String> {
     #[cfg(target_os = "macos")]
-    { return platform::macos::call(serde_json::json!({"command": "intelligence_state"})).unwrap_or_else(|e| serde_json::json!({"supported": true, "reason": e})); }
+    { return Ok(platform::macos::call(serde_json::json!({"command": "intelligence_state"})).unwrap_or_else(|e| serde_json::json!({"supported": true, "reason": e}))); }
     #[cfg(not(target_os = "macos"))]
-    serde_json::json!({"supported": false, "reason": "сейчас недоступна"})
+    Ok(serde_json::json!({"supported": false, "reason": "сейчас недоступна"}))
 }
 
 #[tauri::command]

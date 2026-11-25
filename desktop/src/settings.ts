@@ -2,6 +2,7 @@
 // стеклянные строки 640 с кнопкой справа. Здесь — то, что уже работает на Windows; остальное
 // (git и GitHub, надиктовка, пинкод) — отдельной строкой «переезжает с мака», без выдуманного вида.
 
+import { invoke } from "@tauri-apps/api/core";
 import type { Api, Prefs } from "./api";
 import { icon, type Glyph } from "./icons";
 import { choosePin, lockApi, type LockState } from "./lock";
@@ -58,25 +59,62 @@ const later = (text = "переезжает с мака") => `<span class="later
 const note = (text: string) => `<p class="setting-note">${text}</p>`;
 
 export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, host: SettingsHost) {
-  let prefs = await host.backend.prefs();
-  const vault = await host.backend.vaultPath();
-  let git = await host.backend.gitStatus();
-  const templateCount = (await host.backend.templates().catch(() => [] as string[])).length;
-  const folders = (await host.backend.tree().catch(() => null))?.folders.map((f) => f.name) ?? [];
-  const { invoke } = await import("@tauri-apps/api/core");
+  // Ошибка одного системного запроса не оставляет весь экран пустым и не заменяет сохранённые настройки.
+  const tauri = host.backend.inTauri;
+  const errors = new Set<string>();
+  const pending = new Set<string>();
+  let prefsReady = false;
+  let prefs: Prefs = {};
   type ModelInfo = { id: string; installed: boolean; download_mb: number };
-  let models: ModelInfo[] = host.backend.inTauri ? await invoke<ModelInfo[]>("models") : [];
+  let vault: string | null = null;
+  let git: Awaited<ReturnType<Api["gitStatus"]>> = { repo: false, last_commit: null, commits: 0, pending: 0 };
+  let templateCount = 0;
+  let folders: string[] = [];
+  let models: ModelInfo[] = [];
   let downloading: number | null = null;
   let downloadingId = "";
   let recording = false;
-  let autostartOn = host.backend.inTauri ? await invoke<boolean>("autostart") : false;
-  let speakers = host.backend.inTauri ? await invoke<boolean>("speakers_installed") : false;
-  let meaning = host.backend.inTauri ? await invoke<boolean>("meaning_installed") : false;
-  let lock: LockState | null = host.backend.inTauri ? await lockApi.state() : null;
-  let gh = await host.backend.githubStatus();
-  // Вход по коду: код на экране, пока ждём подтверждения на github.com.
+  let autostartOn = false;
+  let speakers = false;
+  let meaning = false;
+  let lock: LockState | null = null;
+  let gh: Awaited<ReturnType<Api["githubStatus"]>> = { signed_in: false, remote: null, unpushed: false };
   let login: { code: string; url: string; error?: string } | null = null;
-  const intelligence = host.backend.inTauri ? await invoke<{supported: boolean; reason: string | null}>("intelligence_state") : { supported: false, reason: null };
+  let intelligence: { supported: boolean; reason: string | null } = { supported: false, reason: null };
+  let renderFrame = 0;
+  function update() {
+    renderFrame ||= requestAnimationFrame(() => {
+      renderFrame = 0;
+      if (root.isConnected && !recording && downloading === null && !login) render();
+    });
+  }
+  function load<T>(name: string, request: Promise<T>, apply: (value: T) => void) {
+    pending.add(name);
+    errors.delete(name);
+    // WinRT/диск могут не ответить: показываем повтор, не выдавая резервные значения за сохранённые.
+    let timer = 0;
+    const timeout = new Promise<never>((_, reject) => { timer = window.setTimeout(() => reject(new Error("settings timeout")), 6000); });
+    void Promise.race([request, timeout]).then(apply).catch(() => errors.add(name)).finally(() => {
+      clearTimeout(timer); pending.delete(name); update();
+    });
+  }
+  function loadData() {
+    if (!prefsReady) load("prefs", host.backend.prefs(), value => { prefs = value; prefsReady = true; });
+    load("vault", host.backend.vaultPath(), value => { vault = value; });
+    load("git", host.backend.gitStatus(), value => { git = value; });
+    load("templates", host.backend.templates(), value => { templateCount = value.length; });
+    load("folders", host.backend.tree(), value => { folders = value.folders.map(f => f.name); });
+    load("github", host.backend.githubStatus(), value => { gh = value; });
+    if (tauri) {
+      load("models", invoke<ModelInfo[]>("models"), value => { models = value; });
+      load("autostart", invoke<boolean>("autostart"), value => { autostartOn = value; });
+      load("speakers", invoke<boolean>("speakers_installed"), value => { speakers = value; });
+      load("meaning", invoke<boolean>("meaning_installed"), value => { meaning = value; });
+      load("lock", lockApi.state(), value => { lock = value; });
+      load("intelligence", invoke<typeof intelligence>("intelligence_state"), value => { intelligence = value; });
+    }
+  }
+  const availability = (name: string) => errors.has(name) ? later("не удалось загрузить") : later("загружаем…");
   const isMac = document.body.classList.contains("tauri-macos");
 
   function body(): string {
@@ -85,7 +123,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
         return row("тема", "", choice("theme", prefs.theme ?? "system", [["system", "как в системе"], ["light", "светлая"], ["dark", "тёмная"]]))
           + row("язык", "", choice("uiLanguage", prefs.uiLanguage ?? "system", [["system", "как в системе"], ["ru", "Русский"], ["en", "English"], ["sr", "Srpski"]]))
           + row(os("открывать при входе в windows", "открывать при входе в mac"), "чтобы хоткей надиктовки работал сразу",
-            host.backend.inTauri ? toggle("autostart", autostartOn) : later())
+            host.backend.inTauri ? pending.has("autostart") || errors.has("autostart") ? availability("autostart") : toggle("autostart", autostartOn) : later())
           + row("размер текста заметок", "", choice("textSize", prefs.textSize ?? 15, [13, 15, 17, 19].map((n) => [n, String(n)])))
           + row("проверка орфографии", "подчёркивать слова с ошибками", toggle("spellcheck", prefs.spellcheck ?? true))
           + (intelligence.supported ? row("apple intelligence", intelligence.reason ?? "кратко для заметок, на этом mac", intelligence.reason ? "" : toggle("intelligence", prefs.intelligence ?? false)) : "")
@@ -133,10 +171,11 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
           const mb = m?.download_mb ?? 0;
           const size = mb >= 1000 ? `${(mb / 1000).toFixed(1).replace(".", ",")} гб` : `${mb} мб`;
           const status = !host.backend.inTauri ? later("в браузере нет")
-            : id === chosenModel && m?.installed ? granted("выбрана")
+            : !m ? availability("models")
+            : id === chosenModel && m.installed ? granted("выбрана")
             : downloading !== null && downloadingId === id ? `<span class="later">${Math.round(downloading * 100)}%</span>`
             : m?.installed ? pill(`model-use:${id}`, "выбрать") : pill(`model-get:${id}`, "скачать");
-          return row(title, `${kind}, ${size}${m?.installed ? " · скачано" : ""}`, status);
+          return row(title, `${kind}${m ? `, ${size}` : ""}${m?.installed ? " · скачано" : ""}`, status);
         };
         const len = (m: number) => m === 0 ? "без предела" : `до ${m} мин`;
         return row("горячая клавиша", recording ? "нажми сочетание или esc" : "надиктовка из любого приложения",
@@ -152,10 +191,9 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
           + note(os("всё распознаётся на этом компьютере, без интернета", "всё распознаётся на этом mac, без интернета"));
       }
       case "lock":
-        if (!lock) return row("пинкод", "в окне приложения", later("в браузере нет"));
+        if (!lock) return row("пинкод", "в окне приложения", tauri ? availability("lock") : later("в браузере нет"));
         return row("пинкод", lock.has_pin ? "4 цифры" : "не задан", pill("pin-on", lock.has_pin ? "сменить" : "задать"))
-          + row(hello, os("лицо или палец вместо пинкода", "открывать отпечатком"), isMac ? `<span class="later">нет touch id</span>`
-            : lock.hello ? granted("включено") : `<span class="later">${lock.has_pin ? "нет windows hello" : "сначала пинкод"}</span>`)
+          + row(hello, os("лицо или палец вместо пинкода", "открывать отпечатком"), lock.hello ? granted("включено") : `<span class="later">${lock.has_pin ? os("нет windows hello", "нет touch id") : "сначала пинкод"}</span>`)
           + row("когда спрашивать", os("после блокировки компьютера или 15 минут без дела", "после блокировки mac или 15 минут без дела"), "")
           + note("пинкод закрывает приложение, файлы заметок не шифруются");
     }
@@ -172,7 +210,7 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
 
   function render() {
     const [, title, subtitle] = PAGES.find(([p]) => p === page)!;
-    root.innerHTML = `<div class="settings"><h1>${title}</h1><p class="settings-sub">${subtitle}</p><div class="settings-rows">${body()}</div></div>`;
+    root.innerHTML = `<div class="settings"><h1>${title}</h1><p class="settings-sub">${subtitle}</p><div class="settings-rows">${prefsReady ? body() : note("загружаем…")}${errors.size ? `<p class="sync-error">часть настроек не загрузилась <button class="pill" data-set="retry" ${pending.size ? "disabled" : ""}>повторить</button></p>` : ""}</div></div>`;
     sidebar.innerHTML = PAGES.map(([p, t, , g]) =>
       `<button class="row${p === page ? " selected" : ""}" style="padding-left:8px" data-page="${p}">${icon(g)}<span>${t}</span></button>`).join("");
     host.onCrumb(`настройки / ${title}`);
@@ -188,6 +226,8 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
   root.addEventListener("click", async (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>("button");
     if (!b) return;
+    if (b.dataset.set === "retry") { if (!pending.size) loadData(); return; }
+    if (!prefsReady) return;
     if (b.dataset.toggle?.startsWith("folder:")) {
       const f = b.dataset.toggle.slice(7);
       const off = new Set(prefs.excludedFolders ?? []);
@@ -346,4 +386,5 @@ export async function mountSettings(root: HTMLElement, sidebar: HTMLElement, hos
     render();
   });
   render();
+  loadData();
 }

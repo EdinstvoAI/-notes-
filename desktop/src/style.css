@@ -523,7 +523,7 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .onboarding.lifting { z-index: 61; }
 .onboarding::before, .onboarding .unlock-sheet { transition: transform 1.3s var(--smooth); }
 .onboarding:not(.shown)::before { transform: translateY(100vh); }
-.onboarding:not(.content) .unlock-sheet > * { opacity: 0; filter: blur(6px); }
+.onboarding:not(.content) .unlock-sheet > :not(.notes-glass-canvas) { opacity: 0; filter: blur(6px); }
 /* Финал (phase .finished, 1,4 с): лист уезжает вниз, планки встают на всё окно, логотип улетает вверх и гаснет. */
 .onboarding.finished::before { transform: translateY(100vh); transition: transform 1.4s var(--smooth); }
 .onboarding.finished .unlock-sheet { transform: translateY(100vh); transition-duration: 1.4s; }
@@ -537,8 +537,8 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .onboarding-finale b { display: block; font: 30px "Martian Logo"; font-weight: normal; letter-spacing: -0.05em; color: rgb(var(--fg)); }
 .onboarding-finale small { display: block; margin-top: 1px; font-size: 11px; letter-spacing: -0.07em; color: rgba(var(--fg), 0.3); }
 .onboarding:not(.shown) .unlock-sheet { transform: translateY(100vh); }
-.onboarding .unlock-sheet > * { transition: opacity .8s var(--smooth), filter .8s var(--smooth); }
-.onboarding.step-swap .unlock-sheet > * { opacity: 0; filter: blur(6px); transition: none; }
+.onboarding .unlock-sheet > :not(.notes-glass-canvas) { transition: opacity .8s var(--smooth), filter .8s var(--smooth); }
+.onboarding.step-swap .unlock-sheet > :not(.notes-glass-canvas) { opacity: 0; filter: blur(6px); transition: none; }
 @keyframes step-out { to { opacity: 0; filter: blur(6px); } }
 .onboarding .unlock-sheet > .step-out, .onboarding.step-swap .unlock-sheet > .step-out { opacity: 1; filter: none; pointer-events: none; animation: step-out .8s var(--smooth) forwards; }
 
@@ -664,7 +664,8 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 /* «новая папка» (NewFolderCard): контур папки пунктиром 2 / 6–6 цветом линии, плюс 24 ниже центра, подпись серым. */
 .card.new-card { position: relative; }
 .new-card svg path { fill: none; stroke: var(--line); stroke-width: 2; stroke-dasharray: 6 6; }
-.new-card > .dot { position: absolute; left: 80px; top: 69px; color: var(--ink); }
+/* Размер — свой: правило `.card svg` растягивало плюс до папки 184×133 (issue #16). */
+.new-card > .dot { position: absolute; left: 80px; top: 69px; width: 24px; height: 24px; color: var(--ink); }
 .new-card b { color: var(--gray); }
 .page::-webkit-scrollbar { display: none; }
 .nav-hover, .group.liquid > .nav-hover { position: absolute; left: 0; top: 11px; height: 26px; border-radius: 8px; background: rgba(var(--bg), 0.06);
@@ -771,4 +772,15 @@ button { font: inherit; color: inherit; letter-spacing: inherit; background: non
 .sheet.notes-glass, .unlock-sheet.notes-glass {
   border-radius: 0;
   clip-path: inset(0 round 18px 18px 0 0);
+}
+
+.onboarding .quiet.second { top: auto; bottom: 22px; }
+.onboarding .device-code.big { width: min(520px, calc(100% - 40px)); }
+:root[data-theme="dark"] .onboarding .device-code.big { background: #1f1f1f; color: #fff; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .onboarding .device-code.big { background: #1f1f1f; color: #fff; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrive, .onboarding::before, .onboarding .unlock-sheet,
+  .onboarding .unlock-sheet > :not(.notes-glass-canvas) { transition: none; }
 }

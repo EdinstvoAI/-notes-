@@ -66,7 +66,8 @@ export async function runOnboarding(backend: Api): Promise<Folder> {
     // Шапка из планок высотой 66 и логотип в ней; лист наезжает на неё с 54.
     const head = document.createElement("div");
     head.className = "onboarding-head";
-    head.innerHTML = `<canvas></canvas><b>&lt;notes&gt;</b>`;
+    head.setAttribute("data-tauri-drag-region", "");
+    head.innerHTML = `<canvas></canvas><b data-tauri-drag-region>&lt;notes&gt;</b>`;
     document.body.append(head, el);
     const dark = () => matchMedia("(prefers-color-scheme: dark)").matches || document.documentElement.dataset.theme === "dark";
     const paint = () => drawSlats(head.querySelector("canvas")!, innerWidth, 66, dark(), 20);
@@ -79,7 +80,7 @@ export async function runOnboarding(backend: Api): Promise<Folder> {
 
     // StepLayout на маке: всё по верху листа — назад 32, заголовок 42, текст 83, кнопка primaryY − 54, ссылка 356.
     const view = (title: string, text: string, primary?: [string, string], secondary?: [string, string], body = "", y = 343, back?: string) => `
-      <div class="unlock-sheet">${back ? `<button class="quiet back" data-go="${back}">назад</button>` : ""}<h1>${title}</h1><p>${text}</p>${body}
+      <div class="unlock-sheet" data-step="${step}">${back ? `<button class="quiet back" data-go="${back}">назад</button>` : ""}<h1>${title}</h1><p>${text}</p>${body}
         ${primary ? `<button class="coral-capsule" style="top:${y - 54}px" data-go="${primary[1]}">${primary[0]}</button>` : ""}
         ${secondary ? `<button class="quiet second" data-go="${secondary[1]}">${secondary[0]}</button>` : ""}
         ${extra && step !== "code" ? `<p class="error">${esc(extra)}</p>` : ""}</div>`;
@@ -87,7 +88,7 @@ export async function runOnboarding(backend: Api): Promise<Folder> {
     let first = true;
     const render = () => {
       // Смена шага — старое уходит в размытие, новое проявляется (как шаги на маке).
-      const old = first ? [] : [...el.querySelectorAll<HTMLElement>(".unlock-sheet > *")].map((n) => n.cloneNode(true) as HTMLElement);
+      const old = first ? [] : [...el.querySelectorAll<HTMLElement>(".unlock-sheet > :not(.notes-glass-canvas)")].map((n) => n.cloneNode(true) as HTMLElement);
       if (!first) { el.classList.add("step-swap"); setTimeout(() => el.classList.remove("step-swap"), 30); }
       first = false;
       // Копии старого шага — после обработчиков шага, чтобы те нашли только новые поля.

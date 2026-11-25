@@ -8,6 +8,8 @@ type Lang = "ru" | "en" | "sr";
 const dict = table as unknown as Record<string, { en: string; sr: string }>;
 // Строки с числами: шаблоны из каталога мака (%lld, %@ → $1, $2) плюс свои строки Windows-версии.
 const patterns: [RegExp, string, string][] = [
+  [/^модель (.+) не скачана$/, "$1 is not downloaded", "$1 nije preuzet"],
+  [/^распознаёт (.+)$/, "using $1", "prepoznavanje: $1"],
   ...((table as unknown as { __patterns: [string, string, string][] }).__patterns ?? []).map(([r, en, sr]) => [new RegExp(r), en, sr] as [RegExp, string, string]),
   [/^сохранено только что$/, "saved just now", "sačuvano upravo"],
   [/^сохранено (\d+) мин назад$/, "saved $1 min ago", "sačuvano pre $1 min"],

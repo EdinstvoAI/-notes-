@@ -23,6 +23,8 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
     await check("Edinstvo Glass: header surfaces", glass.length === 3 && glass.every(h => h.dataset.engine === "webgl" && !!h.querySelector(".notes-glass-canvas")));
     const intelligence = await invoke<{supported: boolean; reason: string | null}>("intelligence_state");
     await check("native intelligence availability", typeof intelligence.supported === "boolean" && (intelligence.reason === null || typeof intelligence.reason === "string"));
+    const plus = ui.app.querySelector<SVGElement>(".new-card > .dot");
+    await check("folder plus keeps its own size", !!plus && Math.round(plus.getBoundingClientRect().width) === 24);
     const tree = await backend.tree();
     await check("vault tree from Rust", tree.folders.some((f) => f.name === "проекты"));
     await ui.openNote("проекты/план.md");
@@ -153,6 +155,16 @@ export async function runSelftest(backend: Api, ui: { openNote(path: string): Pr
       await invoke("selftest_install_e5", { from: e5 });
       const hits = await invoke<[string, number][]>("meaning_search", { query: "сколько мне заплатят за дизайн" });
       await check(`meaning search → ${hits[0]?.[0]}`, hits[0]?.[0] === "проекты/счёт.md");
+    }
+    // Настройки раньше зависали на Windows Hello и выдавали несканированную модель за выбранную.
+    ui.app.querySelector<HTMLElement>('[data-section="settings"]')?.click();
+    for (let i = 0; i < 60 && !ui.app.querySelector('[data-toggle="spellcheck"]'); i++) await pause(100);
+    await check("settings load independently of platform checks", !!ui.app.querySelector('[data-toggle="spellcheck"]'));
+    ui.app.querySelector<HTMLElement>('[data-page="dictation"]')?.click();
+    for (let i = 0; i < 60 && !ui.app.querySelector('[data-set="model-get:gigaam-v3-punct"],[data-set="model-use:gigaam-v3-punct"]'); i++) await pause(100);
+    const installedModels = await invoke<{id: string; installed: boolean}[]>("models");
+    if (!installedModels.some(model => model.installed)) {
+      await check("missing dictation models are never marked chosen", !ui.app.querySelector('.settings-rows .granted') && !!ui.app.querySelector('[data-set="model-get:gigaam-v3-punct"]'));
     }
     // Надиктовка без микрофона: WAV модели проходит весь путь до буфера обмена (как -dictationTestFile).
     const archive = await invoke<string | null>("selftest_env", { name: "NOTES_SELFTEST_GIGAAM" });
